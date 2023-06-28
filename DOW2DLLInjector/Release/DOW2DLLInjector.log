@@ -1,0 +1,6 @@
+﻿  DOW2DLLInjector.cpp
+  Generating code
+  Previous IPDB and IOBJ mismatch, fall back to full compilation.
+  All 69 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  DOW2DLLInjector.vcxproj -> C:\Users\bruis\source\repos\DOW2DLLInjector\Release\DOW2DLLInjector.exe
