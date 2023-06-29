@@ -32,6 +32,10 @@ int __fastcall setgamemodedetour(void* ecx, DWORD32 param2) {
         *(stor + 0x5b) = 1;
         *(stor + 0x5c) = 0;
     }
+    else if (ecx == (void*)5) {
+        *(stor + 0x5b) = 0;
+        *(stor + 0x5c) = 1;
+    }
     else {
         *(stor + 0x5b) = 0; //ffa 
         *(stor + 0x5c) = 0; //team ffa
@@ -48,17 +52,6 @@ int __fastcall setgamemodedetour(void* ecx, DWORD32 param2) {
 
 //find where the strings for the gamemodes are stored so we can utilize them
 //004882c6
-DWORD APIENTRY MainThread(LPVOID param) {
-   while (true) {
-       if (GetAsyncKeyState(VK_F6) & 0x80000) {
-           MessageBoxA(NULL, "F6 Press", "F6", MB_OK);
-       }
-       Sleep(1000);
-   }
-   return 0;
-}
-
-//pretend to be XThread.dll and use that to get loaded instead of injecting
 
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)

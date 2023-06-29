@@ -47,10 +47,15 @@ std::string Injector::readConfig() {
         if (con.compare("true") == 0) {
             ret = ret + " -dev";
         }
-        pos = str.find("skip-movies: ");
+        pos = str.find("skip-movies:");
         con = readAfterColon(str, pos);
         if (con.compare("true") == 0) {
             ret = ret + " -nomovies";
+        }
+        pos = str.find("windowed:");
+        con = readAfterColon(str, pos);
+        if (con.compare("true") == 0) {
+            ret = ret + "-window";
         }
     }
     else {
@@ -60,6 +65,7 @@ std::string Injector::readConfig() {
         file << "mod-folder: mods\n";
         file << "dev: false\n";
         file << "skip-movies: true\n";
+        file << "windowed: false\n";
         file.close();
         mods_folder = "mods";
         ret = "DOW2.exe";
@@ -133,8 +139,8 @@ bool Injector::startProcess(std::string args) {
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
-   // const char* path = "D:\\SteamLibrary\\steamapps\\common\\Dawn of War II - Retribution\\DOW2.exe -modname Anni2 -dev";
-    LPSTR args2 = (char*)args.c_str();
+    const char* path = "D:\\SteamLibrary\\steamapps\\common\\Dawn of War II - Retribution\\DOW2.exe -modname test2 -dev";
+    LPSTR args2 = (char*)path;
     if (!CreateProcessA(NULL, args2, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
         return false;
     }
@@ -182,7 +188,7 @@ void Injector::findDLLS(std::string folder) {
 void Injector::start() {
     std::string args = readConfig();
     findDLLS(mods_folder);
-    startProcess(args);
+    //startProcess(args);
     setProcess("DOW2.exe");
     for (auto& i : dlls) {
         injectDLL(mods_folder + "\\" + i);
