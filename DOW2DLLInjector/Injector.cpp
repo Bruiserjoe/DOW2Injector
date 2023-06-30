@@ -19,7 +19,26 @@ std::string readAfterColon(std::string data, size_t start) {
     }
     return ret1;
 }
-
+std::string readAfterColonWithSpaces(std::string data, size_t start) {
+    size_t pos = start;
+    for (pos; pos < data.size() && data[pos] != ':'; pos++);
+    pos++;
+    //now skip spaces before the actual data
+    for (pos; pos < data.size() && (data[pos] == ' ' || data[pos] == '\t'); pos++);
+    std::string ret1 = "";
+    for (pos; pos < data.size() && data[pos] != '\n'; pos++) {
+        ret1.push_back(data[pos]);
+    }
+    return ret1;
+}
+std::string readLine(std::string data, size_t* start) {
+    std::string ret = "";
+    for (*start; *start < data.size() && data[*start] != '\n'; (*start)++) {
+        ret.push_back(data[*start]);
+    }
+    (*start)++;
+    return ret;
+}
 
 std::string Injector::readConfig() {
     std::cout << "Reading config \n";
@@ -30,14 +49,17 @@ std::string Injector::readConfig() {
         std::stringstream stream;
         stream << file.rdbuf();
         std::string str = stream.str();
-        size_t pos = str.find("module:");
+        size_t pos;
         std::string con = "";
-        con = readAfterColon(str, pos);
-        if (con.compare("none") == 0) {
-            ret = "DOW2.exe";
+        pos = str.find("exe-path:");
+        con = readAfterColonWithSpaces(str, pos);
+        if (con.compare("local") != 0) {
+            ret = con;
         }
-        else {
-            ret = "DOW2.exe -modname " + con;
+        pos = str.find("module:");
+        con = readAfterColon(str, pos);
+        if (con.compare("none") != 0) {
+            ret = ret + " -modname " + con;
         }
         pos = str.find("mod-folder:");
         con.clear();
@@ -58,6 +80,15 @@ std::string Injector::readConfig() {
         if (con.compare("true") == 0) {
             ret = ret + "-window";
         }
+        pos = str.find("sleep-after-menu:");
+        con = readAfterColon(str, pos);
+        sleep_time = std::stoi(con);
+        //reading load order
+        pos = str.find("load-order:");
+        std::string line = readLine(str, &pos);
+        while ((line = readLine(str, &pos)).compare("end-load")) {
+            load_order.push_back(line);
+        }
     }
     else {
         std::ofstream file;
@@ -67,6 +98,10 @@ std::string Injector::readConfig() {
         file << "dev: false\n";
         file << "skip-movies: true\n";
         file << "windowed: false\n";
+        file << "sleep-after-menu: 500\n";
+        file << "exe-path: local\n";
+        file << "load-order:\n"; 
+        file << "end-load\n";
         file.close();
         mods_folder = "mods";
         ret = "DOW2.exe";
@@ -130,11 +165,12 @@ bool Injector::injectDLL(std::string name) {
 }
 
 //looping through modules
-bool CheckModules(HANDLE process, size_t* prev, size_t* count) {
+bool CheckModules(HANDLE process) {
     HMODULE modules[1024];
     DWORD needed;
     std::vector<std::string> total;
     if (EnumProcessModules(process, modules, sizeof(modules), &needed)) {
+        //useful for debugging
         for (int i = 0; i < (needed / sizeof(HMODULE)); i++) {
             TCHAR name[128];
             DWORD size = GetModuleBaseNameA(process, modules[i], name, 128);
@@ -145,26 +181,11 @@ bool CheckModules(HANDLE process, size_t* prev, size_t* count) {
             total.push_back(use);
             //std::cout << "Module: " +  use << "\n";
         }
-        std::sort(total.begin(), total.end());
-        /*for (int i = 0; i < total.size(); i++) {
-            bool found = false;
-            for (auto& j : needed_modules) {
-                if (j.compare(total[i]) == 0) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                return false;
-            }
-        }*/
-        if (total.size() == *prev) {
-            *count += 1;
-        }
+        //std::sort(total.begin(), total.end());
+        //(total.size() == *prev) ? *count += 1: *count = 0;
         if (total.size() >= 149) {
             return true;
         }
-        *prev = total.size();
         
     }
 
@@ -184,17 +205,13 @@ bool Injector::startProcess(std::string args) {
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
-    const char* path = "D:\\SteamLibrary\\steamapps\\common\\Dawn of War II - Retribution\\DOW2.exe -modname popcap -dev";
     LPSTR args2 = (char*)args.c_str();
     if (!CreateProcessA(NULL, args2, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
         return false;
     }
     std::cout << "Waiting for Dawn of War to load\n";
     //gotta wait till dow2 is shown on screen
-    size_t prev = 0;
-    size_t count = 0;
     bool sk = false;
-    //injectDLL("SetupDLL.dll");
     
     while (true) {
         HWND wind = FindWindowA(NULL, "Dawn of War II");
@@ -203,11 +220,8 @@ bool Injector::startProcess(std::string args) {
             if (!sk) {
                 setProcess("DOW2.exe");
             }
-            if (CheckModules(processh, &prev, &count)) {
-                //std::cout << "Waiting for main menu screen\n";
-                //Sleep(1000); //dumb way to do this but idk how else besides hooking
-                injectDLL("SetupDLL.dll");
-               
+            if (CheckModules(processh)) {
+                injectDLL("SetupDLL.dll"); //inject this dll and it will tell us when the main menu is loaded
                 break;
             }
         }
@@ -242,7 +256,20 @@ void Injector::findDLLS(std::string folder) {
     std::cout << "Mods folder read\n";
 }
 
-
+void Injector::orderDLLS() {
+    for (int i = 0; i < dlls.size() && i < load_order.size(); i++) {
+        if (load_order[i].compare( dlls[i]) != 0) {
+            for (int j = 0; j < dlls.size(); j++) {
+                if (dlls[j].compare(load_order[i]) == 0) {
+                    std::string temp = dlls[i];
+                    dlls[i] = dlls[j];
+                    dlls[j] = temp;
+                    break;
+                }
+            }
+        }
+    }
+}
 
 
 void Injector::start() {
@@ -251,6 +278,7 @@ void Injector::start() {
     startProcess(args);
     bool er = false;
     while (!er) {
+        //reading clipboard to see if the menu has been loaded
         if (OpenClipboard(NULL)) {
             char* buffer = (char*)GetClipboardData(CF_TEXT);
             if (buffer) {
@@ -263,7 +291,10 @@ void Injector::start() {
         }
         CloseClipboard();
     }
-    Sleep(500);
+    //order the dlls, this is very important 
+    orderDLLS();
+    Sleep(sleep_time); //just to be safe
+    //injecting mods folder dlls
     for (auto& i : dlls) {
         injectDLL(mods_folder + "\\" + i);
     }

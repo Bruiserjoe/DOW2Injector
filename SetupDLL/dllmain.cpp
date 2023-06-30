@@ -17,7 +17,7 @@ bool first = false;
 //param1 is null
 void __fastcall menudetour(void* ecx, int* param1) {
    
-    int* in = (int*)(ecx);
+    int* in = (int*)(ecx); //no idea why this works
     org_menu(ecx, in);
     
 
@@ -39,27 +39,6 @@ void __fastcall menudetour(void* ecx, int* param1) {
     //FreeLibrary(hmod);
 }
 
-typedef void(__stdcall *StatsImport)();
-StatsImport st_org = reinterpret_cast<StatsImport>(0x00472c52);
-void __stdcall importdetour() {
-    if (!first) {
-        OpenClipboard(NULL);
-        EmptyClipboard();
-
-        const char* msg = "Menu setup";
-        HGLOBAL glob = GlobalAlloc(GMEM_FIXED, sizeof(char) * 11);
-        char* buffer = (char*)GlobalLock(glob);
-        strcpy_s(buffer, sizeof(char) * 11, msg);
-        GlobalUnlock(glob);
-
-        SetClipboardData(CF_TEXT, glob);
-        CloseClipboard();
-        first = true;
-    }
-    st_org();
-    //int* in = (int*)(ecx);
-    //org_menu(ecx, in);
-}
 
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)

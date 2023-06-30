@@ -18,10 +18,6 @@
 // -exit
 
 
-//todo
-// -add load order
-// -add setting dow2.exe path so don't have to store in main dow2 folder
-
 //don't pass this around in functions, no copy constructor or move constructor
 class Injector {
 private:
@@ -29,6 +25,8 @@ private:
     HANDLE processh;
     std::string mods_folder;
     std::vector<std::string> dlls;
+    std::vector<std::string> load_order;
+    size_t sleep_time;
     DWORD get_proc_id(const char* name) {
         DWORD p_id = 0;
         PROCESSENTRY32 pe32;
@@ -65,4 +63,5 @@ public:
     //dll related
     bool injectDLL(std::string name);
     void findDLLS(std::string folder);
+    void orderDLLS();
 };
