@@ -4,7 +4,7 @@ DLL injector which injects DLLs into DOW2 and starts the game to make sure the d
 Setup guide
 - Download and extract
 - Put the exe and SetupDLL.dll in main Retribution folder and create a folder called mods
-- put BaseDLL.dll and CullspherePatch.dll in it
+- put BaseDLL.dll and CullspherePatch.dll in mods folder
 - Run the exe to play the game with the patches
 - Take a look at the config file generated after first run
 
