@@ -130,7 +130,7 @@ bool Injector::injectDLL(std::string name) {
 }
 
 //looping through modules
-bool CheckModules(HANDLE process) {
+bool CheckModules(HANDLE process, size_t* prev, size_t* count) {
     HMODULE modules[1024];
     DWORD needed;
     std::vector<std::string> total;
@@ -158,9 +158,13 @@ bool CheckModules(HANDLE process) {
                 return false;
             }
         }*/
+        if (total.size() == *prev) {
+            *count += 1;
+        }
         if (total.size() >= 149) {
             return true;
         }
+        *prev = total.size();
         
     }
 
@@ -181,7 +185,7 @@ bool Injector::startProcess(std::string args) {
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
     const char* path = "D:\\SteamLibrary\\steamapps\\common\\Dawn of War II - Retribution\\DOW2.exe -modname popcap -dev";
-    LPSTR args2 = (char*)path;
+    LPSTR args2 = (char*)args.c_str();
     if (!CreateProcessA(NULL, args2, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
         return false;
     }
@@ -199,10 +203,11 @@ bool Injector::startProcess(std::string args) {
             if (!sk) {
                 setProcess("DOW2.exe");
             }
-            if (CheckModules(processh)) {
-                injectDLL("SetupDLL.dll");
+            if (CheckModules(processh, &prev, &count)) {
                 //std::cout << "Waiting for main menu screen\n";
-                //Sleep(2000); //dumb way to do this but idk how else besides hooking
+                //Sleep(1000); //dumb way to do this but idk how else besides hooking
+                injectDLL("SetupDLL.dll");
+               
                 break;
             }
         }
@@ -244,14 +249,21 @@ void Injector::start() {
     std::string args = readConfig();
     findDLLS(mods_folder);
     startProcess(args);
-    setProcess("DOW2.exe");
-    while (true) {
+    bool er = false;
+    while (!er) {
         if (OpenClipboard(NULL)) {
-            HANDLE msg = GetClipboardData(CF_TEXT);
-
-            CloseClipboard();
+            char* buffer = (char*)GetClipboardData(CF_TEXT);
+            if (buffer) {
+                std::string str(buffer);
+                if (str.compare("Menu setup") == 0) {
+                    er = true;
+                    std::cout << "Main menu loaded\n";
+                }
+            }
         }
+        CloseClipboard();
     }
+    Sleep(500);
     for (auto& i : dlls) {
         injectDLL(mods_folder + "\\" + i);
     }

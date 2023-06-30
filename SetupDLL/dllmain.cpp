@@ -12,30 +12,53 @@ MainMenu org_menu = reinterpret_cast<MainMenu>(0x0047254f);
 PDETOUR_TRAMPOLINE trampoline = nullptr;
 MainMenu real_menu = nullptr;
 MainMenu real_detour = nullptr;
-
+HMODULE hmod;
+bool first = false;
+//param1 is null
 void __fastcall menudetour(void* ecx, int* param1) {
-    //error("menu", "menu called");
-    org_menu(ecx, param1);
-    const char* msg = "Menu setup";
-    HGLOBAL glob = GlobalAlloc(GMEM_FIXED, sizeof(msg));
-    strcpy_s((char*)glob, sizeof(msg), msg);
-    OpenClipboard(NULL);
-    EmptyClipboard();
-    SetClipboardData(CF_TEXT, glob);
-    CloseClipboard();
+   
+    int* in = (int*)(ecx);
+    org_menu(ecx, in);
+    
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
-    DetourDetach((void**)&org_menu, menudetour);
-    DetourTransactionCommit();
+    if (!first) {
+        OpenClipboard(NULL);
+        EmptyClipboard();
+
+        const char* msg = "Menu setup";
+        HGLOBAL glob = GlobalAlloc(GMEM_FIXED, sizeof(char) * 11);
+        char* buffer = (char*)GlobalLock(glob);
+        strcpy_s(buffer, sizeof(char) * 11, msg);
+        GlobalUnlock(glob);
+
+        SetClipboardData(CF_TEXT, glob);
+        CloseClipboard();
+        first = true;
+    }
+    
+    //FreeLibrary(hmod);
 }
 
-DWORD WINAPI MainThread(LPVOID param) {
-    while (true) {
-        
-    }
+typedef void(__stdcall *StatsImport)();
+StatsImport st_org = reinterpret_cast<StatsImport>(0x00472c52);
+void __stdcall importdetour() {
+    if (!first) {
+        OpenClipboard(NULL);
+        EmptyClipboard();
 
-    return 0;
+        const char* msg = "Menu setup";
+        HGLOBAL glob = GlobalAlloc(GMEM_FIXED, sizeof(char) * 11);
+        char* buffer = (char*)GlobalLock(glob);
+        strcpy_s(buffer, sizeof(char) * 11, msg);
+        GlobalUnlock(glob);
+
+        SetClipboardData(CF_TEXT, glob);
+        CloseClipboard();
+        first = true;
+    }
+    st_org();
+    //int* in = (int*)(ecx);
+    //org_menu(ecx, in);
 }
 
 
@@ -43,19 +66,23 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
     DetourRestoreAfterWith();
     DetourIsHelperProcess();
+    
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH:
-
+        hmod = hModule;
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
+        //DetourAttach((void**)&st_org, importdetour);
         DetourAttachEx((void**)&org_menu, menudetour, &trampoline, (void**)&real_menu, (void**)&real_detour);
         DetourTransactionCommit();
+        //CreateThread(0, 0, MainThread, hModule, 0, 0);
     case DLL_PROCESS_DETACH:
+        /*error("detach", "got detached");
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
         DetourDetach((void**)&org_menu, menudetour);
-        DetourTransactionCommit();
+        DetourTransactionCommit();*/
         break;
     }
     return TRUE;
