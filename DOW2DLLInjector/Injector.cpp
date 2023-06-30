@@ -56,6 +56,9 @@ std::string Injector::readConfig() {
         if (con.compare("local") != 0) {
             ret = con;
         }
+        else {
+            ret = "DOW2.exe";
+        }
         pos = str.find("module:");
         con = readAfterColon(str, pos);
         if (con.compare("none") != 0) {
@@ -131,7 +134,7 @@ bool Injector::injectDLL(std::string name) {
         error(str.c_str(), "File can't be found please redownload");
         return false;
     }
-
+    
     LPVOID loc = VirtualAllocEx(processh, 0, MAX_PATH, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     if (!loc) {
         CloseHandle(processh);
@@ -219,6 +222,7 @@ bool Injector::startProcess(std::string args) {
         if (IsWindowVisible(wind)) {
             if (!sk) {
                 setProcess("DOW2.exe");
+                SetPriorityClass(processh, HIGH_PRIORITY_CLASS);
             }
             if (CheckModules(processh)) {
                 injectDLL("SetupDLL.dll"); //inject this dll and it will tell us when the main menu is loaded
@@ -273,6 +277,10 @@ void Injector::orderDLLS() {
 
 
 void Injector::start() {
+    OpenClipboard(NULL);
+    EmptyClipboard();
+    CloseClipboard();
+
     std::string args = readConfig();
     findDLLS(mods_folder);
     startProcess(args);

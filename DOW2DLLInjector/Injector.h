@@ -17,6 +17,10 @@
 // -loop through the dlls and inject them into dow2.exe
 // -exit
 
+//todo
+// -convert to using detours to load dlls
+// -make gamemode patch dynamic so developers can set the gamemode they want
+// -look into
 
 //don't pass this around in functions, no copy constructor or move constructor
 class Injector {

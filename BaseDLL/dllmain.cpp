@@ -20,6 +20,10 @@ void __fastcall setgamemodedetour(void* ecx, DWORD32 param2) {
     char* stor;
     __asm mov [stor], ebx;
 
+    if (stor == NULL) {
+        MessageBoxA(0, "Null memory", "NULL", 0);
+    }
+
     if (ecx == (void*)1) {
         *(stor + 0x5b) = 1;
         *(stor + 0x5c) = 0;
