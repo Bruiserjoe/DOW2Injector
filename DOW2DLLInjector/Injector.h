@@ -18,7 +18,9 @@
 // -exit
 
 
-
+//todo
+// -add load order
+// -add setting dow2.exe path so don't have to store in main dow2 folder
 
 //don't pass this around in functions, no copy constructor or move constructor
 class Injector {

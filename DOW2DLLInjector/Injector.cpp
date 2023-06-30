@@ -1,5 +1,6 @@
 #include "Injector.h"
-
+#include <psapi.h>
+#include <algorithm>
 
 void error(const char* err_title, const char* err_message) {
     MessageBoxA(0, err_message, err_title, 0);
@@ -128,8 +129,48 @@ bool Injector::injectDLL(std::string name) {
     return true;
 }
 
+//looping through modules
+bool CheckModules(HANDLE process) {
+    HMODULE modules[1024];
+    DWORD needed;
+    std::vector<std::string> total;
+    if (EnumProcessModules(process, modules, sizeof(modules), &needed)) {
+        for (int i = 0; i < (needed / sizeof(HMODULE)); i++) {
+            TCHAR name[128];
+            DWORD size = GetModuleBaseNameA(process, modules[i], name, 128);
+            std::string use = "";
+            for (int j = 0; j < size; j++) {
+                use.push_back(name[j]);
+            }
+            total.push_back(use);
+            //std::cout << "Module: " +  use << "\n";
+        }
+        std::sort(total.begin(), total.end());
+        /*for (int i = 0; i < total.size(); i++) {
+            bool found = false;
+            for (auto& j : needed_modules) {
+                if (j.compare(total[i]) == 0) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return false;
+            }
+        }*/
+        if (total.size() >= 149) {
+            return true;
+        }
+        
+    }
 
 
+    return false;
+}
+
+
+
+//this is causing crashes because the injection doesn't happen after load, can cause weird errors
 bool Injector::startProcess(std::string args) {
     std::cout << "Starting " + args << "\n";
     //starting dow2
@@ -140,16 +181,30 @@ bool Injector::startProcess(std::string args) {
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
     const char* path = "D:\\SteamLibrary\\steamapps\\common\\Dawn of War II - Retribution\\DOW2.exe -modname popcap -dev";
-    LPSTR args2 = (char*)args.c_str();
+    LPSTR args2 = (char*)path;
     if (!CreateProcessA(NULL, args2, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
         return false;
     }
     std::cout << "Waiting for Dawn of War to load\n";
     //gotta wait till dow2 is shown on screen
+    size_t prev = 0;
+    size_t count = 0;
+    bool sk = false;
+    //injectDLL("SetupDLL.dll");
+    
     while (true) {
         HWND wind = FindWindowA(NULL, "Dawn of War II");
+       
         if (IsWindowVisible(wind)) {
-            break;
+            if (!sk) {
+                setProcess("DOW2.exe");
+            }
+            if (CheckModules(processh)) {
+                injectDLL("SetupDLL.dll");
+                //std::cout << "Waiting for main menu screen\n";
+                //Sleep(2000); //dumb way to do this but idk how else besides hooking
+                break;
+            }
         }
     }
     std::cout << "Begining the injection\n";
@@ -190,7 +245,15 @@ void Injector::start() {
     findDLLS(mods_folder);
     startProcess(args);
     setProcess("DOW2.exe");
+    while (true) {
+        if (OpenClipboard(NULL)) {
+            HANDLE msg = GetClipboardData(CF_TEXT);
+
+            CloseClipboard();
+        }
+    }
     for (auto& i : dlls) {
         injectDLL(mods_folder + "\\" + i);
     }
+    system("pause");
 }

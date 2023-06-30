@@ -2,10 +2,10 @@
 #include "dllmain.h"
 
 
-typedef void(__thiscall *setGamemode)(void* ecx, DWORD32 param2);
+typedef void(__fastcall *setGamemode)(void* ecx, DWORD32 param2);
 setGamemode setgame_target = reinterpret_cast<setGamemode>(0x004882c6); //function before hook
 
-
+//rebuild
 //http://jbremer.org/x86-api-hooking-demystified/
 //https://www.x86matthew.com/view_post?id=stealth_hook
 
@@ -53,38 +53,6 @@ void __fastcall setgamemodedetour(void* ecx, DWORD32 param2) {
 //find where the strings for the gamemodes are stored so we can utilize them
 //004882c6
 
-
-/*typedef void(__fastcall* CullRetrieval)(int* param1);
-CullRetrieval org_retcull = reinterpret_cast<CullRetrieval>(0x007513b0);
-
-PDETOUR_TRAMPOLINE trampoline = nullptr; //final address of trampoline
-CullRetrieval real_target = nullptr; //final address of target
-CullRetrieval real_detour = nullptr; //final address of detour
-
-HMODULE util;
-typedef void(__thiscall* Set)(void* ecx, char const* param1, float param2);
-Set f_set = nullptr;
-
-typedef float(__thiscall* Retrieve)(void* ecx, char const* param1);
-Retrieve f_ret = nullptr;
-
-typedef void* (__fastcall* GetResourceData)(void* ecx);
-GetResourceData gr_data = nullptr;
-//keep * on the right to the function name or else get weird errors
-//now set the cull area scale everytime this detour is called
-void __fastcall culldetour(int* ecx) {
-    int* tis = ecx + 0x26; //use this to get the resource data from util
-    char* r_data = (char*)gr_data(tis); //getting the resource data structure
-    //float scale = f_ret((void*)(r_data + 0x78), "cull_area_scale");
-    //std::string str = "Scale: " + std::to_string(scale);
-    //setting the value of cull_area_scale in the keyvaluecontainer
-    f_set((void*)(r_data + 0x78), "cull_area_scale", 1000.0f); //this was causing the crash
-    org_retcull(ecx); //calling original function
-    //again for safety
-    f_set((void*)(r_data + 0x78), "cull_area_scale", 1000.0f); //this was causing the crash
-
-}
-*/
 HMODULE test;
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
@@ -93,27 +61,11 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
     DetourIsHelperProcess();
     switch (dwReason) {
     case DLL_PROCESS_ATTACH:
-        //test = GetModuleHandleA("DOW2.exe");
-        //setgame_target = reinterpret_cast<setGamemode>(test + 0x882c6);
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
         DetourAttach((void**)&setgame_target, setgamemodedetour);
         DetourTransactionCommit();
         
-        //attaching the hook
-       /* DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourAttachEx((void**)&org_retcull, culldetour, &trampoline, (void**)&real_target, (void**)&real_detour);
-        DetourTransactionCommit();
-
-        util = GetModuleHandleA("Util.dll");
-        if (util) {
-            //https://stackoverflow.com/questions/3598108/how-can-i-call-a-exported-function-using-ordinal-number
-            //getting location of functions using their ordinals which I got from decomping the DLL
-            gr_data = reinterpret_cast<GetResourceData>(GetProcAddress(util, MAKEINTRESOURCEA(446)));
-            f_set = reinterpret_cast<Set>(GetProcAddress(util, MAKEINTRESOURCEA(676)));
-            f_ret = reinterpret_cast<Retrieve>(GetProcAddress(util, MAKEINTRESOURCEA(662)));
-        }*/
 
         //MessageBoxA(NULL, "DLL Injected", "DLL injected", MB_OK);
         //CreateThread(0, 0, MainThread, hModule, 0, 0);
@@ -123,12 +75,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         DetourUpdateThread(GetCurrentThread());
         DetourDetach((void**)&setgame_target, setgamemodedetour);
         DetourTransactionCommit();
-
-        /*DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourDetach((void**)&org_retcull, culldetour);
-        DetourTransactionCommit();
-        */
         break;
     }
 
