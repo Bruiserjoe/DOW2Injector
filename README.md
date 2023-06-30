@@ -14,4 +14,4 @@ Known Issues
 Fixes
 - If you experience crashes on startup or first menu button pressed try increasing the sleep-after-menu time, it's in milliseconds
 - Otherwise try changing the load order
-- This is still early in development so issues are expected, make a issue if you have a problem
+- This is still early in development so issues are expected
