@@ -57,7 +57,21 @@ void __fastcall setgamemodedetour(void* ecx, DWORD32 param2) {
 //find where the strings for the gamemodes are stored so we can utilize them
 //004882c6
 
-HMODULE test;
+//hook the function which edits the displayed gamemode value and save that string for use
+
+typedef void(__stdcall *GamemodeChange)();
+GamemodeChange gc = reinterpret_cast<GamemodeChange>(0x00486f6a);
+
+//recreate locstring so we can get the locstring value from ebp like in possiblegamemodestring
+
+void __stdcall gamechangedetour() {
+    gc();
+    char* stor;
+    __asm mov [stor], ebp;
+    
+
+}
+
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {

@@ -134,8 +134,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="DLLInjection.cpp" />
     <ClCompile Include="DOW2DLLInjector.cpp" />
-    <ClCompile Include="Injector.cpp" />
+    <ClCompile Include="Config.cpp" />
+    <ClCompile Include="Process.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Injector.h" />

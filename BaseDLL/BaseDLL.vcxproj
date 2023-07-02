@@ -24,6 +24,7 @@
     <ProjectGuid>{66c07191-2ac8-4d94-b382-d89b9bf8d5dc}</ProjectGuid>
     <RootNamespace>BaseDLL</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>AnnihilateFFA</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

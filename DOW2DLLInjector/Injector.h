@@ -10,17 +10,18 @@
 #include <TlHelp32.h>
 
 
-//structure
-// main
-// -Loop through mod dll directory
-//     -And create DLL object 
-// -loop through the dlls and inject them into dow2.exe
-// -exit
 
 //todo
-// -convert to using detours to load dlls
+// -figure out how monsterhunter mod loader is so stable
 // -make gamemode patch dynamic so developers can set the gamemode they want
-// -look into
+// -improve mesh drawing
+// -look into suggestions
+//  -Fix soundbug
+//  -add lan back
+//  -improve performance
+//  -Fix last stand map issues
+//  -Add more heros to last stand
+//  -reverse server code
 
 //don't pass this around in functions, no copy constructor or move constructor
 class Injector {
@@ -39,7 +40,8 @@ private:
         if (snap != INVALID_HANDLE_VALUE) {
             if (Process32First(snap, &pe32)) {
                 do {
-                    if (strcmp(pe32.szExeFile, name) == 0) {
+                    //comparing without case sensitivity
+                    if (_stricmp(pe32.szExeFile, name) == 0) {
                         p_id = pe32.th32ProcessID;
                         break;
                     }
@@ -53,6 +55,10 @@ private:
         struct stat buffer;
         return (stat(filename.c_str(), &buffer) == 0);
     }
+    void error(const char* err_title, const char* err_message) {
+        MessageBoxA(0, err_message, err_title, 0);
+        exit(-1);
+    }
 public:
     ~Injector() {
         CloseHandle(processh);
@@ -64,6 +70,7 @@ public:
     //process related
     bool startProcess(std::string args);
     void setProcess(std::string process);
+    void setProcess(DWORD id);
     //dll related
     bool injectDLL(std::string name);
     void findDLLS(std::string folder);
