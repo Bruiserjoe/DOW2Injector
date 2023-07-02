@@ -12,9 +12,10 @@
 
 
 //todo
-// -figure out how monsterhunter mod loader is so stable
-// -make gamemode patch dynamic so developers can set the gamemode they want
-// -improve mesh drawing
+// -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
+// -figure out where the menu screens are stored so we can add our own and edit the behavior
+// -fix crash on clicking menu button, it's probably something to do with the actual hook cause we get debug log output everytime
+// -look into dll hijacking
 // -look into suggestions
 //  -Fix soundbug
 //  -add lan back

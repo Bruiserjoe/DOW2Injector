@@ -7,3 +7,6 @@
 #include <psapi.h>
 #include <detours.h>
 #include <algorithm>
+#include <fstream>
+#include <thread>
+#include <mutex>

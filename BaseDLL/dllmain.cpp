@@ -2,8 +2,12 @@
 #include "dllmain.h"
 
 
-typedef void(__fastcall *setGamemode)(void* ecx, DWORD32 param2);
+typedef void(__thiscall *setGamemode)(void* ecx, DWORD32 param2);
 setGamemode setgame_target = reinterpret_cast<setGamemode>(0x004882c6); //function before hook
+
+GamemodeMap map;
+
+
 
 //rebuild
 //http://jbremer.org/x86-api-hooking-demystified/
@@ -14,48 +18,35 @@ setGamemode setgame_target = reinterpret_cast<setGamemode>(0x004882c6); //functi
 //https://guidedhacking.com/threads/introduction-to-calling-conventions-for-beginners.20041/
 // 
 //is a member function of a class so we use fastcall to work around having to use thiscall
+//still causing crashes
 void __fastcall setgamemodedetour(void* ecx, DWORD32 param2) {
+    std::ofstream file;
+    file.open("mod_logs\\gamemode.log");
     //try both eax and ebx
-
+    file << "Before assembly\n";
     char* stor;
     __asm mov [stor], ebx;
+    if (stor != NULL) {
+        file << "Stor value: " + std::to_string((int)stor) + "\n";
+        file << "ECX value: " + std::to_string((int)ecx) + "\n";
+        size_t cast = (size_t)ecx;
 
-    if (stor == NULL) {
-        MessageBoxA(0, "Null memory", "NULL", 0);
-    }
+        Mode m = map.getMode(cast);
+        *(stor + 0x5b) = m.ffa;
+        *(stor + 0x5c) = m.t_ffa;
 
-    if (ecx == (void*)1) {
-        *(stor + 0x5b) = 1;
-        *(stor + 0x5c) = 0;
+        DWORD32* dw = (DWORD32*)(stor + 0x50);
+        *dw = param2;
+        dw = (DWORD32*)(stor + 0x54);
+        *dw = (DWORD32)ecx;
     }
-    else if (ecx == (void*)2) {
-        *(stor + 0x5b) = 0;
-        *(stor + 0x5c) = 1;
-    }
-    else if (ecx == (void*)4) {
-        *(stor + 0x5b) = 1;
-        *(stor + 0x5c) = 0;
-    }
-    else if (ecx == (void*)5) {
-        *(stor + 0x5b) = 0;
-        *(stor + 0x5c) = 1;
-    }
-    else {
-        *(stor + 0x5b) = 0; //ffa 
-        *(stor + 0x5c) = 0; //team ffa
-    }
-
-    DWORD32* dw = (DWORD32*)(stor + 0x50);
-    *dw = param2;
-    dw = (DWORD32*)(stor + 0x54);
-    *dw = (DWORD32)ecx;
-
+    file << "Function finished\n";
+    file.close();
     return;
     //return setgame_target(ecx, param2);
 }
 
-//find where the strings for the gamemodes are stored so we can utilize them
-//004882c6
+
 
 //hook the function which edits the displayed gamemode value and save that string for use
 
@@ -77,8 +68,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
     DetourRestoreAfterWith();
     DetourIsHelperProcess();
+    std::ofstream f;
     switch (dwReason) {
     case DLL_PROCESS_ATTACH:
+        map.readConfig("mods\\gmd.cfg");
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
         DetourAttach((void**)&setgame_target, setgamemodedetour);
@@ -89,10 +82,13 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         //CreateThread(0, 0, MainThread, hModule, 0, 0);
         break;
     case DLL_PROCESS_DETACH:
-        DetourTransactionBegin();
+        //f.open("mod_logs\\detachg.log");
+        //f << "Detached gamemode\n";
+        /*DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
         DetourDetach((void**)&setgame_target, setgamemodedetour);
-        DetourTransactionCommit();
+        DetourTransactionCommit();*/
+        //file.close();
         break;
     }
 

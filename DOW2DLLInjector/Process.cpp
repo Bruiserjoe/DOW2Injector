@@ -115,6 +115,17 @@ void Injector::start() {
         }
         CloseClipboard();
     }
+    OpenClipboard(NULL);
+    EmptyClipboard();
+
+    const char* msg = "Injection Start";
+    HGLOBAL glob = GlobalAlloc(GMEM_FIXED, sizeof(char) * 16);
+    char* buffer = (char*)GlobalLock(glob);
+    strcpy_s(buffer, sizeof(char) * 16, msg);
+    GlobalUnlock(glob);
+
+    SetClipboardData(CF_TEXT, glob);
+    CloseClipboard();
     //order the dlls, this is very important 
     orderDLLS();
     Sleep(sleep_time); //just to be safe

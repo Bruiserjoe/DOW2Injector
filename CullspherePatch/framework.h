@@ -5,3 +5,4 @@
 #include <windows.h>
 #include <string>
 #include <detours.h>
+#include <fstream>

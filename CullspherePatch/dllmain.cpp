@@ -28,16 +28,19 @@ GetResourceData gr_data = nullptr;
 
 
 
-
 //keep * on the right to the function name or else get weird errors
 //now set the cull area scale everytime this detour is called
 void __fastcall culldetour(int* ecx) {
+    std::ofstream file;
+    file.open("mod_logs\\cullsphere.log");
+    file << "Cullsphere: before scaling\n";
+    file << "Ptr: " + std::to_string((int)ecx) + "\n";
     int* tis = ecx + 0x26; //use this to get the resource data from util
     char* r_data = (char*)gr_data(tis); //getting the resource data structure
     //setting the value of cull_area_scale in the keyvaluecontainer
     float scale = camera_distance;
     if (camera_distance < 800.0f) {
-        scale = (sinf(camera_distance * 0.0037f - 0.5) + 1) * 30;
+        scale = (sinf(camera_distance * 0.0037f - 0.5f) + 1.0f) * 30.0f;
     }
     else {
         scale = 0.5f;
@@ -46,12 +49,13 @@ void __fastcall culldetour(int* ecx) {
     //std::string str = "Scale: " + std::to_string(out_s);
     //error("Scale", str.c_str());
 
-
     f_set((void*)(r_data + 0x78), "cull_area_scale", scale); //this was causing the crash
+    file << "Before orignal function call\n";
     org_retcull(ecx); //calling original function
     //again for safety
     f_set((void*)(r_data + 0x78), "cull_area_scale", scale); //this was causing the crash
-
+    file << "After cull function\n";
+    file.close();
 }
 
 //found the camera draw function
@@ -88,6 +92,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH:
+        
         //attaching the hook
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
@@ -111,14 +116,15 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         break;
     case DLL_PROCESS_DETACH:
         //detaching the dll
-        DetourTransactionBegin();
+        /*DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
         DetourDetach((void**)&org_retcull, culldetour);
         DetourTransactionCommit();
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
         DetourDetach((void**)&cm_draw, cameradrawdetour);
-        DetourTransactionCommit();
+        DetourTransactionCommit();*/
+        //file.close();
         break;
     }
     return TRUE;
