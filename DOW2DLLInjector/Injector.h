@@ -23,6 +23,7 @@
 //  -Fix last stand map issues
 //  -Add more heros to last stand
 //  -reverse server code
+//  -look into re-adding dow 1 pathfinding supposed to be more efficient
 
 //don't pass this around in functions, no copy constructor or move constructor
 class Injector {

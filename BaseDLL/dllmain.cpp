@@ -1,8 +1,8 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "dllmain.h"
 
-
-typedef void(__thiscall *setGamemode)(void* ecx, DWORD32 param2);
+//returns a pointer of some kind
+typedef void*(__thiscall *setGamemode)(void* ecx, DWORD32 param2);
 setGamemode setgame_target = reinterpret_cast<setGamemode>(0x004882c6); //function before hook
 
 GamemodeMap map;
@@ -19,7 +19,7 @@ GamemodeMap map;
 // 
 //is a member function of a class so we use fastcall to work around having to use thiscall
 //still causing crashes
-void __fastcall setgamemodedetour(void* ecx, DWORD32 param2) {
+void* __fastcall setgamemodedetour(void* ecx, DWORD32 param2) {
     std::ofstream file;
     file.open("mod_logs\\gamemode.log");
     //try both eax and ebx
@@ -42,7 +42,7 @@ void __fastcall setgamemodedetour(void* ecx, DWORD32 param2) {
     }
     file << "Function finished\n";
     file.close();
-    return;
+    return stor;
     //return setgame_target(ecx, param2);
 }
 
@@ -66,8 +66,8 @@ void __stdcall gamechangedetour() {
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
-    DetourRestoreAfterWith();
-    DetourIsHelperProcess();
+    //DetourRestoreAfterWith();
+    //DetourIsHelperProcess();
     std::ofstream f;
     switch (dwReason) {
     case DLL_PROCESS_ATTACH:

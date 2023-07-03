@@ -73,8 +73,8 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
-    DetourRestoreAfterWith();
-    DetourIsHelperProcess();
+    //DetourRestoreAfterWith();
+    //DetourIsHelperProcess();
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH:

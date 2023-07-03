@@ -86,8 +86,8 @@ void __stdcall cameradrawdetour(int param1, float param2) {
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
 
-    DetourRestoreAfterWith();
-    DetourIsHelperProcess();
+    //DetourRestoreAfterWith();
+    //DetourIsHelperProcess();
     
     switch (dwReason)
     {
