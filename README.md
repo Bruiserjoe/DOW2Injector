@@ -18,10 +18,10 @@ Fixes
 
 
 Gamemode Patch
--Release comes packaged with an example config
--The config file must be named gmd.cfg and be stored in the mods folder
--Example member layout:
-  -(index): ffa: false; tffa: true;
-  -(index2): ffa: true; tffa: false
--ffa and tffa can not both be true so make sure not to mix them
--0-3 in example config are the built in gamemodes so I recommend leaving them as is
+- Release comes packaged with an example config
+- The config file must be named gmd.cfg and be stored in the mods folder
+- Example member layout:
+  - (index): ffa: false; tffa: true;
+  - (index2): ffa: true; tffa: false
+- ffa and tffa can not both be true so make sure not to mix them
+- 0-3 in example config are the built in gamemodes so I recommend leaving them as is
