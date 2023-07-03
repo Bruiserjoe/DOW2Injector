@@ -116,14 +116,14 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         break;
     case DLL_PROCESS_DETACH:
         //detaching the dll
-        /*DetourTransactionBegin();
+        DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
         DetourDetach((void**)&org_retcull, culldetour);
         DetourTransactionCommit();
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
         DetourDetach((void**)&cm_draw, cameradrawdetour);
-        DetourTransactionCommit();*/
+        DetourTransactionCommit();
         //file.close();
         break;
     }

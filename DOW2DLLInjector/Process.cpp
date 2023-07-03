@@ -1,5 +1,4 @@
 #include "Injector.h"
-#include <psapi.h>
 #include <algorithm>
 
 
@@ -39,6 +38,7 @@ bool CheckModules(HANDLE process) {
                 use.push_back(name[j]);
             }
             total.push_back(use);
+            
             //std::cout << "Module: " +  use << "\n";
         }
         //std::sort(total.begin(), total.end());
@@ -129,6 +129,7 @@ void Injector::start() {
     //order the dlls, this is very important 
     orderDLLS();
     Sleep(sleep_time); //just to be safe
+    freeDLL("SetupDLL.dll");
     //injecting mods folder dlls
     for (auto& i : dlls) {
         injectDLL(mods_folder + "\\" + i);

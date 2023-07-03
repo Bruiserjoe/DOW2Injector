@@ -81,7 +81,7 @@ public:
 		if (index < lookup.size()) {
 			return lookup[index];
 		}
-		return {-1, -1};
+		return {0, 0};
 	}
 	void readConfig(std::string path) {
 		std::ifstream file;

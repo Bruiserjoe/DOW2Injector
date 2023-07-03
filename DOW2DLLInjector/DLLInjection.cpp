@@ -4,8 +4,12 @@
 
 
 bool Injector::injectDLL(std::string name) {
+    if (!processh || processh == INVALID_HANDLE_VALUE) {
+        setProcess(pid);
+        std::cout << "Reopening process\n";
+    }
+
     std::cout << "Injecting: " + name << "\n";
-    //char dll_name[] = "BaseDLL.dll";
     char dll_path[MAX_PATH] = { 0 };
     GetFullPathName(name.c_str(), MAX_PATH, dll_path, NULL);
     if (!file_exists(dll_path)) {
@@ -14,14 +18,14 @@ bool Injector::injectDLL(std::string name) {
         return false;
     }
 
-    LPVOID loc = VirtualAllocEx(processh, 0, MAX_PATH, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    LPVOID loc = VirtualAllocEx(processh, 0, MAX_PATH, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (!loc) {
         CloseHandle(processh);
         error("Failed to allocate", "Failed to allocate memory in program");
         return false;
     }
 
-    bool err = WriteProcessMemory(processh, loc, dll_path, strlen(dll_path), nullptr);
+    bool err = WriteProcessMemory(processh, loc, dll_path, strlen(dll_path) + 1, 0);
 
     if (!err) {
         CloseHandle(processh);
@@ -29,7 +33,7 @@ bool Injector::injectDLL(std::string name) {
         return false;
     }
 
-    HANDLE hthread = CreateRemoteThread(processh, 0, 0, (LPTHREAD_START_ROUTINE)LoadLibraryA, loc, 0, nullptr);
+    HANDLE hthread = CreateRemoteThread(processh, 0, 0, (LPTHREAD_START_ROUTINE)LoadLibraryA, loc, 0, 0);
 
     if (!hthread) {
         CloseHandle(processh);
@@ -39,7 +43,8 @@ bool Injector::injectDLL(std::string name) {
 
 
     WaitForSingleObject(hthread, INFINITE);
-    VirtualFree(loc, strlen(dll_path), MEM_RELEASE);
+    VirtualFreeEx(processh, loc, (strlen(dll_path) + 1), MEM_RELEASE);
+    //VirtualFree(loc, 0, MEM_RELEASE);
     CloseHandle(hthread);
     return true;
 }
@@ -82,4 +87,54 @@ void Injector::orderDLLS() {
             }
         }
     }
+}
+
+
+bool Injector::freeDLL(std::string dll_name){
+    HMODULE modules[1024];
+    DWORD needed;
+    HMODULE target = NULL;
+    if (EnumProcessModules(processh, modules, sizeof(modules), &needed)) {
+        //useful for debugging
+        bool found = false;
+        for (size_t i = 0; i < (needed / sizeof(HMODULE)); i++) {
+            TCHAR name[128];
+            DWORD size = GetModuleBaseNameA(processh, modules[i], name, 128);
+            std::string use = "";
+            for (size_t j = 0; j < size; j++) {
+                use.push_back(name[j]);
+            }
+            MODULEINFO info;
+            GetModuleInformation(processh, modules[i], &info, sizeof(info));
+            if (use.compare(dll_name) == 0) {
+                //std::cout << name << " base address: " << info.lpBaseOfDll << "\n";
+                target = (HMODULE)info.lpBaseOfDll;
+                found = true;
+                break;
+            }
+            //std::cout << "Module: " +  use << "\n";
+        }
+        std::cout << "Found " << dll_name << " unloading from target process\n";
+        //std::sort(total.begin(), total.end());
+        //(total.size() == *prev) ? *count += 1: *count = 0;
+        if (found && target != NULL) {
+            HANDLE hthread = CreateRemoteThread(processh, 0, 0, (LPTHREAD_START_ROUTINE)FreeLibrary, target, 0, 0);
+
+            if (!hthread) {
+                CloseHandle(processh);
+                error("Failed to attach thread", "Failed to attach thread to dow2");
+                return false;
+            }
+
+
+            WaitForSingleObject(hthread, INFINITE);
+            CloseHandle(hthread);
+            std::cout << "Library successfully unloaded\n";
+            return true;
+        }
+    }
+    
+
+
+    return false;
 }
