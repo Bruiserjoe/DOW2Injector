@@ -67,7 +67,10 @@ DWORD WINAPI MainThread(LPVOID param) {
     DetourDetach((void**)&org_menu, menudetour);
     DetourTransactionCommit();
     file.close();
-    //FreeLibrary(hmod);
+    /*hmod = GetModuleHandleA("SetupDLL.dll");
+    if (hmod) {
+        FreeLibrary(hmod);
+    }*/
     return 0;
 }
 

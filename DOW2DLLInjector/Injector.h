@@ -16,8 +16,6 @@
 // -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
 //  -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
 // -figure out where the menu screens are stored so we can add our own and edit the behavior
-// -switch to detours to load dlls into dow2
-// -fix crash on clicking menu button, it's probably something to do with the actual hook cause we get debug log output everytime
 // -look into dll hijacking
 // -superheavy mode with no limits on popcap or heavies limit
 // -look into making deformation dll
