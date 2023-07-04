@@ -25,3 +25,9 @@ Gamemode Patch
   - (index2): ffa: true; tffa: false
 - ffa and tffa can not both be true so make sure not to mix them
 - 0-3 in example config are the built in gamemodes so I recommend leaving them as is
+
+Cullsphere Patch
+- Simple as putting in mods folder
+- Will dynamically change cullsphere size up to zoom level 800 at which point it will set it to a small level to cull basically everything
+- Past 800 you can't really see much do to fog so this is not such a big deal
+- This can have a hit on performance but through testing it isn't so bad on 100-200 levels
