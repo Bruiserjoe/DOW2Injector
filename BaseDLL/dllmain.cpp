@@ -78,18 +78,30 @@ int** __fastcall LobbyChangeValsDetour(void* tis, void* unused, int** param1, in
 }
 
 
+
+DWORD FindDMAAddy(DWORD ptr, std::vector<unsigned int> offsets)
+{
+    DWORD addr = ptr;
+    for (unsigned int i = 0; i < offsets.size(); ++i)
+    {
+        addr = *(DWORD*)addr;
+        addr += offsets[i];
+    }
+    return addr;
+}
+
+
+
 //https://stackoverflow.com/questions/45262003/pointer-from-cheat-engine-to-c
 typedef size_t(__stdcall *TeamSetup)(int* param1, ULONG param2, void* param3, void** param4, DWORD32* ed, DWORD32* es);
 TeamSetup teamset_org = nullptr;
 size_t __stdcall TeamSetupDetour(int* param1, ULONG param2, void* param3, void** param4, DWORD32* ed, DWORD32* es) {
     DWORD b = (DWORD)GetModuleHandleA(NULL);
     //param4 the teams request by the map
-    DWORD pt = (b) + 0x00F35A78;
-    DWORD pt2 = pt + 0x17C;
-    DWORD* pt1 = reinterpret_cast<DWORD*>(pt2);
-    lobby_slots = *pt1;
+    DWORD addr = FindDMAAddy(b + 0x00F35A78, { 0x17C });
+    lobby_slots = *((DWORD*)addr);
     
-    //ct_call(param1, t, );
+    
     size_t param_2 = *(param1 - 3);
     DWORD32 exp_teams;
     
@@ -102,7 +114,7 @@ size_t __stdcall TeamSetupDetour(int* param1, ULONG param2, void* param3, void**
         //make this work for all player counts
         teams = lobby_slots / 2;
     }
-    //param4 = (void**)teams;
+    param4 = (void**)teams;
 
     size_t out = teamset_org(param1, param2, param3, param4, ed, es);
     __asm {
