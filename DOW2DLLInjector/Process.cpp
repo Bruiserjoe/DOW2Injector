@@ -134,5 +134,5 @@ void Injector::start() {
     for (auto& i : dlls) {
         injectDLL(mods_folder + "\\" + i);
     }
-    system("pause");
+    //system("pause");
 }

@@ -17,8 +17,9 @@
 //  -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
 // -figure out where the menu screens are stored so we can add our own and edit the behavior
 // -look into dll hijacking
-// -superheavy mode with no limits on popcap or heavies limit
-// -look into making deformation dll
+// -add config for the setupdll file
+// -fix the crash on 8p ffa - look at function found and also find the positions where the team is edited
+// -superheavy mode with no limits on popcap or heavies limit as a toggle
 // -look into suggestions
 //  -Fix soundbug
 //  -add lan back
