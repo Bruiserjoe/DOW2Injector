@@ -95,3 +95,76 @@ public:
 
 
 };
+void MemPatch(BYTE* dst, BYTE* src, size_t size) {
+	DWORD prot;
+	VirtualProtect(dst, size, PAGE_EXECUTE_READWRITE, &prot);
+	std::memcpy(dst, src, size);
+	VirtualProtect(dst, size, prot, &prot);
+}
+
+void NopPatch(BYTE* dst, size_t size) {
+	DWORD prot;
+	VirtualProtect(dst, size, PAGE_EXECUTE_READWRITE, &prot);
+	std::memset(dst, 0x90, size);
+	VirtualProtect(dst, size, prot, &prot);
+}
+
+typedef void(__stdcall *LoadMaps)(char* path, void* param2);
+LoadMaps ldmaps_org = nullptr;
+
+//we keep our own list of maps for each folder, so we can set the list to what ever we want
+class MapLoader {
+private:
+	struct MapAddr {
+		DWORD addr; //actual data addr
+		size_t g_index; //game index
+		std::string path; //file path
+	};
+
+	DWORD offset;
+	DWORD campaign_maps;
+	DWORD ffa_maps;
+	DWORD pvp_maps;
+	DWORD laststand_maps;
+	std::vector<MapAddr> map_lists;
+public:
+	MapLoader() {
+		offset = 0;
+		campaign_maps = 0;
+		ffa_maps = 0;
+		pvp_maps = 0;
+		laststand_maps = 0;
+	}
+	MapLoader(DWORD base) {
+		offset = base + 0xf357a0;
+		campaign_maps = offset + 0x0;
+		ffa_maps = offset + 0x3c;
+		pvp_maps = offset + 0xc;
+		laststand_maps = offset + 0x30;
+	}
+	~MapLoader() {
+		for (auto& i : map_lists) {
+			std::free((void*)i.addr);
+		}
+	}
+	size_t generateMapList(std::string file_path, size_t g_index) {
+		void* dat = std::malloc(100); //no idea how big this has to be
+		DWORD t = (DWORD)dat;
+		ldmaps_org((char*)file_path.c_str(), dat);
+		map_lists.push_back({t, g_index, file_path});
+		return map_lists.size() - 1;
+	}
+	DWORD getMapList(std::string name) {
+
+	}
+	DWORD getMapList(size_t game) {
+		for (auto& i : map_lists) {
+			if (i.g_index == game) {
+				return i.addr;
+			}
+		}
+		return pvp_maps;
+	}
+
+
+};

@@ -100,6 +100,7 @@ void Injector::start() {
     std::string args = readConfig();
     findDLLS(mods_folder);
     startProcess(args);
+   
     bool er = false;
     while (!er) {
         //reading clipboard to see if the menu has been loaded
