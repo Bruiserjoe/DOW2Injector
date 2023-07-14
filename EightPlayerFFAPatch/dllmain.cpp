@@ -101,7 +101,7 @@ void __stdcall PopulateDetour(void* tis) {
     }
     set_data(t);
     int ebp_4 = 0;
-    
+
     __asm {
         pop edi;
         pop esi;
@@ -115,9 +115,9 @@ void __stdcall PopulateDetour(void* tis) {
         mov eb, eax;
         pop eax;
     }
-    
+
     int* t = (int*)eb;
-    
+
     int* t1 = t + -0x90;
     int* t2 = t + -0x94;
     */
@@ -136,7 +136,7 @@ void __stdcall PopulateDetour(void* tis) {
         if (lobby_slots >= 8) {
             src = (BYTE*)"\xBE\x0A\x00\x00\x00\x90";
             MemPatch(reinterpret_cast<BYTE*>(base + 0x9146f), src, 6);
-            
+
             //src = (BYTE*)"\x90\x90\x90\x90\x90\x90";
             //MemPatch(reinterpret_cast<BYTE*>(base + 0x2b16), src, 6);
         }
@@ -145,6 +145,11 @@ void __stdcall PopulateDetour(void* tis) {
             MemPatch(reinterpret_cast<BYTE*>(base + 0x9146f), src, 6);
         }
     }*/
+    BYTE* src;
+    if (l_lobby != lobby_slots) {
+        
+    }
+
     l_lobby = lobby_slots;
     pop_org(tis);
     if (lobby_slots >= 8) {
@@ -175,6 +180,8 @@ void __fastcall FFAUIDetour(int param1, void* unu) {
 }
 //https://defuse.ca/online-x86-assembler.htm#disassembly
 //https://shell-storm.org/x86doc/
+
+//look into UpdateLobbyOnClick
 
 //try MapPreferencesPanel::invokecreatemaplist and MultiplayerLobbyMenuUpdate
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
@@ -219,7 +226,22 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         MemPatch(reinterpret_cast<BYTE*>(base + 0x9148c), src, 7);
         src = (BYTE*)"\x83\xbe\x98\x00\x00\x00\x08";
         MemPatch(reinterpret_cast<BYTE*>(base + 0x47c47), src, 7);
-        
+
+        src = (BYTE*)"\x6a\x02";
+        //MemPatch(reinterpret_cast<BYTE*>(base + 0x47ccf), src, 2);
+
+        src = (BYTE*)"\x83\xf8\x08";
+        //MemPatch(reinterpret_cast<BYTE*>(base + 0x76c137), src, 3);
+
+        src = (BYTE*)"\x6a\x08";
+        //MemPatch(reinterpret_cast<BYTE*>(base + 0x87fb6), src, 2);
+
+        //src = (BYTE*)"\xc7\x44\x24\x20\x08\x00\x00\x00";
+        //MemPatch(reinterpret_cast<BYTE*>(base + 0x66bee), src, 8);
+        //src = (BYTE*)"\xc6\x44\x24\x13\x01";
+        //MemPatch(reinterpret_cast<BYTE*>(base + 0x76bfcc), src, 5);
+        //src = (BYTE*)"\x83\xf8\x08";
+        //MemPatch(reinterpret_cast<BYTE*>(base + 0x76c137), src, 3);
         //NopPatch(reinterpret_cast<BYTE*>(base + 0x91689), 6);
 
 
