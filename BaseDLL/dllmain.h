@@ -127,6 +127,9 @@ bool JmpPatch(BYTE* dst, DWORD target, size_t size) {
 
 typedef void(__stdcall *LoadMaps)(char* path, void* param2);
 LoadMaps ldmaps_org = nullptr;
+typedef DWORD32* (__thiscall *MapDropdown)(void* tis, int param1);
+MapDropdown mpdrp_org = nullptr;
+
 
 //we keep our own list of maps for each folder, so we can set the list to what ever we want
 class MapLoader {

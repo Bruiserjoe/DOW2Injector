@@ -88,7 +88,7 @@ struct MapAddr {
     std::string path; //file path
 };
 
-DWORD32 offset_1;
+DWORD offset_1;
 DWORD32 campaign_maps;
 DWORD32 ffa_maps;
 DWORD32 pvp_maps;
@@ -99,18 +99,41 @@ size_t generateMapList(std::string file_path, size_t g_index) {
     void* dat = std::malloc(100); //no idea how big this has to be
     DWORD t = (DWORD)dat;
     ldmaps_org((char*)file_path.c_str(), dat);
+    char* d = (char*)dat;
+    DWORD32* tp = mpdrp_org((d + 4), (int)(d + 4));
+    //(DWORD32*)(t + 4) = tp;
     map_lists.push_back({ t, g_index, file_path });
     return map_lists.size() - 1;
 }
 
 
 extern "C" DWORD32 getMapList() {
-    /*for (auto& i : map_lists) {
+    for (auto& i : map_lists) {
         if (i.g_index == cur_index) {
             return i.addr;
         }
-    }*/
-    return pvp_maps;
+    }
+    DWORD32 t = 0;
+    if (g_ffa == 0 && g_tffa == 0) {
+        __asm {
+            push edx;
+            mov edx, dword ptr[campaign_maps];
+            add edx, 0xc;
+            mov t, edx;
+            pop edx;
+        }
+    }
+    else {
+        __asm {
+            push edx;
+            mov edx, dword ptr[campaign_maps];
+            add edx, 0x3c;
+            mov t, edx;
+            pop edx;
+        }
+    }
+    
+    return t;
 }
 
 DWORD jmpbackaddr;
@@ -120,15 +143,19 @@ void __declspec(naked) ReplaceAddr() {
         //call getMapList;
         //mov eax, [offset_1];
         push edx;
-        push esi;
-        mov edx, [offset_1];
-        mov edx, dword ptr[edx];
-        mov edx, dword ptr[edx];
-        mov eax, edx;
-        //add eax, 0x3c;
-        //mov esi, campaign_maps;
-        pop edx;
+        //push esi;
+        //mov edx, dword ptr [offset_1];
+        //mov edx, dword ptr[edx];
+        //mov edx, dword ptr[edx];
+        //mov edx, dword ptr [campaign_maps]
+        // mov edx, pvp_maps;
+        
+        //mov eax, edx;
+        call getMapList;
+        //add eax, 0xc;
+        //mov esi, [ffa_maps];
         //pop esi;
+        pop edx;
         jmp [jmpbackaddr];
     }
 }
@@ -167,11 +194,11 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         setgame_target = reinterpret_cast<setGamemode>(base + 0x882c6);
         maplist_org = reinterpret_cast<UpdateMapList>(base + 0x86e0d);
         //mod_org = reinterpret_cast<ModAssignPlayers>(base + 0x39e880);
-        offset_1 = (DWORD32)base + 0xf357a0;
-        campaign_maps = *((DWORD32*)*((DWORD32*)*((DWORD32*)offset_1))) + 0x0;
-        ffa_maps = *((DWORD32*)*((DWORD32*)*((DWORD32*)offset_1))) + 0x3c;
-        pvp_maps = *((DWORD32*)*((DWORD32*)*((DWORD32*)offset_1))) + 0xc;
-        laststand_maps = *((DWORD32*)*((DWORD32*)*((DWORD32*)offset_1))) + 0x30;
+        offset_1 = base + 0xf357a0;
+        campaign_maps = *((DWORD32*)*((DWORD32*)offset_1)) + 0x0;
+        ffa_maps = *((DWORD32*)campaign_maps) + 0x3c;
+        pvp_maps = *((DWORD32*)campaign_maps) + 0xc;
+        laststand_maps = *((DWORD32*)campaign_maps) + 0x30;
 
         
         
@@ -184,6 +211,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         //NopPatch(reinterpret_cast<BYTE*>(base + 0x86e53), 5);
 
         ldmaps_org = reinterpret_cast<LoadMaps>(base + 0x7a42d0);
+        mpdrp_org = reinterpret_cast<MapDropdown>(base + 0x7c351);
         map_list = MapLoader(base);
         generateMapList("mods\\maps\\glorb", 4);
 
