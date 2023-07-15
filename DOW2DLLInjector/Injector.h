@@ -17,9 +17,8 @@
 //  -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
 // -figure out where the menu screens are stored so we can add our own and edit the behavior
 // -look into dll hijacking
-// -add config for the setupdll file
-// -add memorypatch files, so you can just have a bunch of hex you want to patch at different spots, read that file and patch
-// -fix the crash on 8p ffa - look at function found and also find the positions where the team is edited
+// -change to config file being named after module loaded
+// -fix drop down for 8p ffa slots. Also figure out how to make lobby size "infinite"
 // -superheavy mode with no limits on popcap or heavies limit as a toggle
 // -look into suggestions
 //  -Fix soundbug

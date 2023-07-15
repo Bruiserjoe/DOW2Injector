@@ -79,12 +79,62 @@ GamemodeChange gc = reinterpret_cast<GamemodeChange>(0x00486f6a);
 //PossibleMapListGFXGlobal + 0x0 is campaign maps
 
 //function to be mempatched into MultiplayerUpdateMapList
-//do a mid function hook retard
-void* __stdcall ReplaceAddr() {
-    DWORD t = map_list.getMapList(cur_index);
-    return (void*)t;
+//https://www.unknowncheats.me/forum/c-and-c-/67884-mid-function-hook-deal.html
+//https://www.youtube.com/watch?v=jTl3MFVKSUM
+
+struct MapAddr {
+    DWORD addr; //actual data addr
+    size_t g_index; //game index
+    std::string path; //file path
+};
+
+DWORD32 offset_1;
+DWORD32 campaign_maps;
+DWORD32 ffa_maps;
+DWORD32 pvp_maps;
+DWORD32 laststand_maps;
+std::vector<MapAddr> map_lists;
+
+size_t generateMapList(std::string file_path, size_t g_index) {
+    void* dat = std::malloc(100); //no idea how big this has to be
+    DWORD t = (DWORD)dat;
+    ldmaps_org((char*)file_path.c_str(), dat);
+    map_lists.push_back({ t, g_index, file_path });
+    return map_lists.size() - 1;
 }
 
+
+extern "C" DWORD32 getMapList() {
+    /*for (auto& i : map_lists) {
+        if (i.g_index == cur_index) {
+            return i.addr;
+        }
+    }*/
+    return pvp_maps;
+}
+
+DWORD jmpbackaddr;
+void __declspec(naked) ReplaceAddr() {
+    //DWORD t = map_list.getMapList(cur_index);
+    __asm {
+        //call getMapList;
+        //mov eax, [offset_1];
+        push edx;
+        push esi;
+        mov edx, [offset_1];
+        mov edx, dword ptr[edx];
+        mov edx, dword ptr[edx];
+        mov eax, edx;
+        //add eax, 0x3c;
+        //mov esi, campaign_maps;
+        pop edx;
+        //pop esi;
+        jmp [jmpbackaddr];
+    }
+}
+
+
+//rewrite lobbyslottypeset to mess with team setup - 00447b9a
 
 typedef void(__stdcall *UpdateMapList)(void* param1);
 UpdateMapList maplist_org = nullptr;
@@ -111,31 +161,31 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
     //DetourIsHelperProcess();
     std::ofstream f;
     BYTE* src;
-    BYTE* tp;
-    DWORD32 fp;
     switch (dwReason) {
     case DLL_PROCESS_ATTACH:
         base = (DWORD)GetModuleHandleA("DOW2.exe");
         setgame_target = reinterpret_cast<setGamemode>(base + 0x882c6);
         maplist_org = reinterpret_cast<UpdateMapList>(base + 0x86e0d);
         //mod_org = reinterpret_cast<ModAssignPlayers>(base + 0x39e880);
+        offset_1 = (DWORD32)base + 0xf357a0;
+        campaign_maps = *((DWORD32*)*((DWORD32*)*((DWORD32*)offset_1))) + 0x0;
+        ffa_maps = *((DWORD32*)*((DWORD32*)*((DWORD32*)offset_1))) + 0x3c;
+        pvp_maps = *((DWORD32*)*((DWORD32*)*((DWORD32*)offset_1))) + 0xc;
+        laststand_maps = *((DWORD32*)*((DWORD32*)*((DWORD32*)offset_1))) + 0x30;
+
         
-
-        fp = (DWORD32)ReplaceAddr;
-        tp = (BYTE*)ReplaceAddr;
-        src = (BYTE*)"\x9a" + tp[0] + tp[1] + tp[2] + tp[3]; //now concat fp onto end
-        MemPatch(reinterpret_cast<BYTE*>(base + 0x86e42), src, 5); //first part of if
-        MemPatch(reinterpret_cast<BYTE*>(base + 0x86e4e), src, 5); //second part of if
-        //patching other 5 bytes
-        //src = (BYTE*)"\x89\xc0\x";
-        NopPatch(reinterpret_cast<BYTE*>(base + 0x86e47), 5);
+        
+        jmpbackaddr = (base + 0x86e58);
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x86e47), (DWORD)ReplaceAddr, 5);
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x86e53), (DWORD)ReplaceAddr, 5);
+        //NopPatch(reinterpret_cast<BYTE*>(base + 0x86e47), 5);
 
 
-        NopPatch(reinterpret_cast<BYTE*>(base + 0x86e53), 5);
+        //NopPatch(reinterpret_cast<BYTE*>(base + 0x86e53), 5);
 
         ldmaps_org = reinterpret_cast<LoadMaps>(base + 0x7a42d0);
         map_list = MapLoader(base);
-        map_list.generateMapList("mods\\maps\\glorb", 4);
+        generateMapList("mods\\maps\\glorb", 4);
 
         map.readConfig("mods\\gmd.cfg");
         DetourTransactionBegin();

@@ -109,6 +109,22 @@ void NopPatch(BYTE* dst, size_t size) {
 	VirtualProtect(dst, size, prot, &prot);
 }
 
+bool JmpPatch(BYTE* dst, DWORD target, size_t size) {
+	if (size < 5) {
+		return false;
+	}
+	DWORD prot;
+	VirtualProtect(dst, size, PAGE_EXECUTE_READWRITE, &prot);
+	std::memset(dst, 0x90, size);
+	DWORD relativeaddr = (target - (DWORD)dst) - 5;
+
+	*(dst) = 0xE9;
+	*(DWORD*)((DWORD)dst + 1) = relativeaddr;
+	VirtualProtect(dst, size, prot, &prot);
+	return true;
+}
+
+
 typedef void(__stdcall *LoadMaps)(char* path, void* param2);
 LoadMaps ldmaps_org = nullptr;
 
@@ -157,7 +173,7 @@ public:
 	DWORD getMapList(std::string name) {
 
 	}
-	DWORD getMapList(size_t game) {
+	DWORD __cdecl getMapList(size_t game) {
 		for (auto& i : map_lists) {
 			if (i.g_index == game) {
 				return i.addr;
