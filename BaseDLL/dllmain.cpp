@@ -7,7 +7,6 @@ DWORD slots_addr;
 char g_ffa = 0;
 char g_tffa = 0;
 
-MapLoader map_list;
 size_t cur_index = 0;
 
 //returns a pointer of some kind
@@ -82,6 +81,7 @@ GamemodeChange gc = reinterpret_cast<GamemodeChange>(0x00486f6a);
 //https://www.unknowncheats.me/forum/c-and-c-/67884-mid-function-hook-deal.html
 //https://www.youtube.com/watch?v=jTl3MFVKSUM
 
+
 struct MapAddr {
     DWORD32 addr; //actual data addr
     size_t g_index; //game index
@@ -89,14 +89,11 @@ struct MapAddr {
 };
 
 DWORD offset_1;
-DWORD32 ffa_maps;
-DWORD32 pvp_maps;
-DWORD32 laststand_maps;
+DWORD32 campaign_maps;
 std::vector<MapAddr> map_lists;
 
 size_t generateMapList(std::string file_path, size_t g_index) {
-    void* test;
-    //LoadMapFolder("mods\\maps\\glorb", &test);
+   
     
     void* dat = std::malloc(100); //no idea how big this has to be
     DWORD32 t = (DWORD32)dat; //can't use the default map list since it seems to already have it packed tight
@@ -151,10 +148,9 @@ extern "C" DWORD32 getMapList() {
 
 DWORD jmpbackaddr;
 void __declspec(naked) ReplaceAddr() {
-    //DWORD t = map_list.getMapList(cur_index);
+    
     __asm {
-        //call getMapList;
-        //mov eax, [offset_1];
+       
         push edx;
         //push esi;
         //mov edx, dword ptr [offset_1];
@@ -175,23 +171,42 @@ void __declspec(naked) ReplaceAddr() {
 
 
 //rewrite lobbyslottypeset to mess with team setup - 00447b9a
-
-typedef void(__stdcall *UpdateMapList)(void* param1);
-UpdateMapList maplist_org = nullptr;
-
-void __stdcall UpdateMapListDetour(void* param1) {
-    int* ivar4;
-    __asm {
-        push ebx;
-        mov ebx, dword ptr[ebp + 0x8];
-        mov ivar4, ebx;
-        pop ebx;
+std::string getList(std::string line) {
+    size_t pos = line.find("list:");
+    pos += 5;
+    std::string str;
+    for (pos; pos < line.size() && line[pos] != ';'; pos++) {
+        if (line[pos] != ' ' && line[pos] != '\t') {
+            str.push_back(line[pos]);
+        }
     }
-    void** ppv = (void**)(ivar4 + 100);
-    //UISetMapList();
-    *(ivar4 + 0x60) = 0xffffffff;
+    if (str.compare("default") != 0) {
+        str = "Data:Maps/" + str + "/";
+    }
+    return str;
+}
 
+size_t getIndex(std::string line) {
+    size_t i;
+    std::string parse;
+    for (i = 0; i < line.size() && line[i] != ':'; i++) {
+        parse.push_back(line[i]);
+    }
+    i = std::stoi(parse);
+    return i;
+}
 
+void readListConfig(std::string path) {
+    std::ifstream file;
+    file.open(path);
+    std::string line;
+    while (getline(file, line)) {
+        std::string list = getList(line);
+        if (list.compare("default") != 0) {
+            generateMapList(list, getIndex(line));
+        }
+    }
+    file.close();
 }
 
 
@@ -205,36 +220,28 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
     case DLL_PROCESS_ATTACH:
         base = (DWORD)GetModuleHandleA("DOW2.exe");
         setgame_target = reinterpret_cast<setGamemode>(base + 0x882c6);
-        maplist_org = reinterpret_cast<UpdateMapList>(base + 0x86e0d);
         //mod_org = reinterpret_cast<ModAssignPlayers>(base + 0x39e880);
         offset_1 = base + 0xf357a0;
         campaign_maps = *((DWORD32*)*((DWORD32*)offset_1)) + 0x0;
-        //ffa_maps = *((DWORD32*)campaign_maps) + 0x3c;
-        //pvp_maps = *((DWORD32*)campaign_maps) + 0xc;
-        //laststand_maps = *((DWORD32*)campaign_maps) + 0x30;
-        //char* data = (char*)campaign_maps;
+        
         
         
         jmpbackaddr = (base + 0x86e58);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x86e47), (DWORD)ReplaceAddr, 5);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x86e53), (DWORD)ReplaceAddr, 5);
-        //NopPatch(reinterpret_cast<BYTE*>(base + 0x86e47), 5);
+        
 
 
-        //NopPatch(reinterpret_cast<BYTE*>(base + 0x86e53), 5);
         //original functions for map stuff
         ldmaps_org = reinterpret_cast<LoadMaps>(base + 0x7a42d0);
         mpdrp_org = reinterpret_cast<MapDropdown>(base + 0x7c351);
         drpadd_org = reinterpret_cast<DropDownAdd>(base + 0x7a2a20);
 
-        rinfo_org = reinterpret_cast<ResetInfo>(base + 0x7a2930);
-        mri_file = reinterpret_cast<MapReadInfoFile>(base + 0x7a4880);
-        smth_info = reinterpret_cast<SomethingMapInfo>(base + 0x7a55f0);
-        smth_path = reinterpret_cast<SomethingPath>(base + 0x7a3180);
+        
 
-        map_list = MapLoader(base);
-        generateMapList("Data:Maps/glorb/", 4);
-
+        
+        readListConfig("mods\\gmd.cfg");
+        map = GamemodeMap();
         map.readConfig("mods\\gmd.cfg");
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
