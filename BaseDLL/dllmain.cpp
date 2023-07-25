@@ -83,24 +83,35 @@ GamemodeChange gc = reinterpret_cast<GamemodeChange>(0x00486f6a);
 //https://www.youtube.com/watch?v=jTl3MFVKSUM
 
 struct MapAddr {
-    DWORD addr; //actual data addr
+    DWORD32 addr; //actual data addr
     size_t g_index; //game index
     std::string path; //file path
 };
 
 DWORD offset_1;
-DWORD32 campaign_maps;
 DWORD32 ffa_maps;
 DWORD32 pvp_maps;
 DWORD32 laststand_maps;
 std::vector<MapAddr> map_lists;
 
 size_t generateMapList(std::string file_path, size_t g_index) {
+    void* test;
+    //LoadMapFolder("mods\\maps\\glorb", &test);
+    
     void* dat = std::malloc(100); //no idea how big this has to be
-    DWORD t = (DWORD)dat;
-    ldmaps_org((char*)file_path.c_str(), dat);
-    char* d = (char*)dat;
-    DWORD32* tp = mpdrp_org((d + 4), (int)(d + 4));
+    DWORD32 t = (DWORD32)dat; //can't use the default map list since it seems to already have it packed tight
+    char* d = (char*)t;
+    *(DWORD32*)(t + 0x48) = 0;
+    //this works now?
+    ldmaps_org((char*)file_path.c_str(), (void*)t); //figure out why we get ntl error here, probably arguments
+    
+    
+    DWORD32* tp = mpdrp_org((d + 4), (int)(d + 4)); //begin pointer
+    //loop to set drop down buttons?
+    for (DWORD32* i = tp; i != (DWORD32*)(d + 0x4); i += 0x1eb) {
+        //do the map cleanupread function
+        drpadd_org((int)i);
+    }
     //(DWORD32*)(t + 4) = tp;
     map_lists.push_back({ t, g_index, file_path });
     return map_lists.size() - 1;
@@ -115,10 +126,12 @@ extern "C" DWORD32 getMapList() {
     }
     DWORD32 t = 0;
     if (g_ffa == 0 && g_tffa == 0) {
+        char* data;
         __asm {
             push edx;
             mov edx, dword ptr[campaign_maps];
             add edx, 0xc;
+            mov data, edx;
             mov t, edx;
             pop edx;
         }
@@ -196,10 +209,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         //mod_org = reinterpret_cast<ModAssignPlayers>(base + 0x39e880);
         offset_1 = base + 0xf357a0;
         campaign_maps = *((DWORD32*)*((DWORD32*)offset_1)) + 0x0;
-        ffa_maps = *((DWORD32*)campaign_maps) + 0x3c;
-        pvp_maps = *((DWORD32*)campaign_maps) + 0xc;
-        laststand_maps = *((DWORD32*)campaign_maps) + 0x30;
-
+        //ffa_maps = *((DWORD32*)campaign_maps) + 0x3c;
+        //pvp_maps = *((DWORD32*)campaign_maps) + 0xc;
+        //laststand_maps = *((DWORD32*)campaign_maps) + 0x30;
+        //char* data = (char*)campaign_maps;
         
         
         jmpbackaddr = (base + 0x86e58);
@@ -209,11 +222,18 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 
 
         //NopPatch(reinterpret_cast<BYTE*>(base + 0x86e53), 5);
-
+        //original functions for map stuff
         ldmaps_org = reinterpret_cast<LoadMaps>(base + 0x7a42d0);
         mpdrp_org = reinterpret_cast<MapDropdown>(base + 0x7c351);
+        drpadd_org = reinterpret_cast<DropDownAdd>(base + 0x7a2a20);
+
+        rinfo_org = reinterpret_cast<ResetInfo>(base + 0x7a2930);
+        mri_file = reinterpret_cast<MapReadInfoFile>(base + 0x7a4880);
+        smth_info = reinterpret_cast<SomethingMapInfo>(base + 0x7a55f0);
+        smth_path = reinterpret_cast<SomethingPath>(base + 0x7a3180);
+
         map_list = MapLoader(base);
-        generateMapList("mods\\maps\\glorb", 4);
+        generateMapList("Data:Maps/glorb/", 4);
 
         map.readConfig("mods\\gmd.cfg");
         DetourTransactionBegin();

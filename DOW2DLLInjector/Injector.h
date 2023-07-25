@@ -17,7 +17,6 @@
 //  -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
 // -figure out where the menu screens are stored so we can add our own and edit the behavior
 // -look into dll hijacking
-// -change to config file being named after module loaded
 // -fix drop down for 8p ffa slots. Also figure out how to make lobby size "infinite"
 // -superheavy mode with no limits on popcap or heavies limit as a toggle
 // -look into suggestions
@@ -34,6 +33,7 @@ class Injector {
 private:
     DWORD pid;
     HANDLE processh;
+    std::string exe_name;
     std::string mods_folder;
     std::vector<std::string> dlls;
     std::vector<std::string> load_order;

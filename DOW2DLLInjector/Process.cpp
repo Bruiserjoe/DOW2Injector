@@ -91,11 +91,42 @@ bool Injector::startProcess(std::string args) {
     return true;
 }
 
+size_t countOccur(std::string str, char c) {
+    size_t count = 0;
+    for (auto& i : str) {
+        if (i == c) {
+            count++;
+        }
+    }
+    return count;
+}
+
+std::string cullSlashExe(std::string str) {
+    std::string ret = "";
+    size_t c = countOccur(str, '\\');
+    size_t p = 0;
+    size_t co = 0;
+    for (p; p < str.size() && co < c; p++) {
+        if (str[p] == '\\') {
+            co++;
+        }
+    }
+    //now we are at actual filename
+    for (p; p < str.size() && str[p] != '.'; p++) {
+        ret.push_back(str[p]);
+    }
+    return ret;
+}
 
 void Injector::start() {
     OpenClipboard(NULL);
     EmptyClipboard();
     CloseClipboard();
+
+    TCHAR szExeFileName[MAX_PATH];
+    GetModuleFileName(NULL, szExeFileName, MAX_PATH);
+    exe_name = std::string(szExeFileName);
+    exe_name = cullSlashExe(exe_name);
 
     std::string args = readConfig();
     findDLLS(mods_folder);

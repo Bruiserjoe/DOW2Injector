@@ -39,9 +39,9 @@ std::string readLine(std::string data, size_t* start) {
 std::string Injector::readConfig() {
     std::cout << "Reading config \n";
     std::string ret = "";
-    if (file_exists("loader.config")) {
+    if (file_exists(exe_name + ".config")) {
         std::ifstream file;
-        file.open("loader.config");
+        file.open(exe_name + ".config");
         std::stringstream stream;
         stream << file.rdbuf();
         std::string str = stream.str();
@@ -91,7 +91,7 @@ std::string Injector::readConfig() {
     }
     else {
         std::ofstream file;
-        file.open("loader.config");
+        file.open(exe_name + ".config");
         file << "module: none\n";
         file << "mod-folder: mods\n";
         file << "dev: false\n";

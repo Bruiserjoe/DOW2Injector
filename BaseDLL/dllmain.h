@@ -129,13 +129,14 @@ typedef void(__stdcall *LoadMaps)(char* path, void* param2);
 LoadMaps ldmaps_org = nullptr;
 typedef DWORD32* (__thiscall *MapDropdown)(void* tis, int param1);
 MapDropdown mpdrp_org = nullptr;
-
+typedef void(__stdcall *DropDownAdd)(int param1);
+DropDownAdd drpadd_org = nullptr;
 
 //we keep our own list of maps for each folder, so we can set the list to what ever we want
 class MapLoader {
 private:
 	struct MapAddr {
-		DWORD addr; //actual data addr
+		DWORD32 addr; //actual data addr
 		size_t g_index; //game index
 		std::string path; //file path
 	};
@@ -187,3 +188,77 @@ public:
 
 
 };
+typedef int* (__stdcall *ResetInfo)(int* param1);
+ResetInfo rinfo_org = nullptr;
+typedef DWORD32(__fastcall *MapReadInfoFile)(DWORD32 *param1);
+MapReadInfoFile mri_file = nullptr;
+typedef void(__fastcall *SomethingMapInfo)(int* param1, void* info);
+SomethingMapInfo smth_info = nullptr;
+typedef void(__stdcall *SomethingPath)(char* param1);
+SomethingPath smth_path = nullptr;
+
+DWORD32 campaign_maps;
+
+/*
+void LoadMapFolder(std::string path, void** dat) {
+	
+	//loop through the folder and find all the files
+	WIN32_FIND_DATA FileData;
+	std::string files = path + "\\*";
+	HANDLE hFind = FindFirstFile((LPCWSTR)files.c_str(), &FileData);
+	if (hFind == INVALID_HANDLE_VALUE) {
+		//error("Folder is invalid", "Invalid folder passed");
+		return;
+	}
+	std::vector<std::string> folder;
+	do
+	{
+		std::string cur = "";
+		for (int i = 0; i < 260 && FileData.cFileName[i] != '\0'; i++) {
+			cur.push_back(FileData.cFileName[i]);
+		}
+		//if (cur.find(".dll") != std::string::npos) {
+			//std::cout << cur << "\n";
+			folder.push_back(cur);
+		//}
+	} while (FindNextFile(hFind, &FileData) != 0);
+	FindClose(hFind);
+	//now we do the actual file loop
+	void* data = std::malloc(76);
+	if (data != NULL) {
+		std::memset(data, 0, 76);
+		
+	}
+	DWORD32 info = (DWORD32)data;
+	DWORD32 MapInfo[3];
+	for (auto& i : folder) {
+		if (i.find(".scenario") != std::string::npos && i.find(".scenariomarker") == std::string::npos) {
+			//resetting info
+			rinfo_org((int*)MapInfo);
+			//SomethingPath
+			std::string p(i);
+			smth_path((char*)p.data());
+			//Reading map info
+			DWORD32 u = mri_file(MapInfo);
+			if (u != NULL) {
+				//SomethingMapInfo
+				__asm {
+					push esi;
+					push ecx;
+					mov esi, info;
+					lea ecx, [MapInfo];
+					call smth_info;
+					pop ecx;
+					pop esi;
+					//mov esi, dword ptr [inf];
+				}
+				//smth_info((int*)MapInfo, (void*)info); //probably gotta call this in assembly because compiler used esi to pass original data structure into it
+				
+			}
+			//adddropdownitem
+			drpadd_org((int)MapInfo);
+		}
+	}
+
+	*dat = data;
+}*/
