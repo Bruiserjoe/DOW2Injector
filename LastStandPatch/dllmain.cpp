@@ -2,8 +2,8 @@
 #include "framework.h"
 
 //get solo game booting working
+// -the lobby doesnt exist till a match is made, so we gotta create one first
 // -maybe try getting force start working in regular pvp
-// -fuck with the function before the startgame call in laststandstartgame, use x64dbg to find problem in it
 //get new heros able to be added
 
 DWORD base;
@@ -19,6 +19,8 @@ typedef int(__stdcall* StartGame)(int param1);
 StartGame start_org = nullptr;
 //StartLastStand parameter
 DWORD32 slast_param1 = 0;
+//parameter used in recretion of receiving a startgame packet
+DWORD32 slast_param2 = 0;
 
 //function which starts last stand
 typedef void(__stdcall* StartLastStand)(int param1);
@@ -33,7 +35,20 @@ LastStandStartMatchmake lastmatchmake = nullptr;
 typedef void(__thiscall *LastStandLobbyUpdate)(void* tis, DWORD32 *param1);
 LastStandLobbyUpdate lastlobbyupdate = nullptr;
 
+typedef void(__stdcall *SetuphelperOnMessage)(int param1, int param2);
+SetuphelperOnMessage setuph_org = nullptr;
 
+bool start_mode = false;
+
+typedef int* (__stdcall* Need1)(void* param1);
+Need1 ned1 = nullptr;
+typedef bool(__stdcall* Need2)(void* param1, void* param2);
+Need2 ned2 = nullptr;
+typedef void(__stdcall* Need3)(void* param1);
+Need3 ned3 = nullptr;
+
+void* p1;
+int p2;
 
 DWORD jmpbackaddr;
 void __declspec(naked) MatchmakeButton() {
@@ -43,6 +58,14 @@ void __declspec(naked) MatchmakeButton() {
         call slast_org;
         jmp [jmpbackaddr];
     }
+}
+
+//79CB9
+//0045FEC7
+//00458175
+
+extern "C" void EZFUNCTION() {
+
 }
 
 //using this to edit the value we want in SetupHelperOnMessage
@@ -56,15 +79,7 @@ void __declspec(naked) MidCheckGameValid() {
     }
 }
 
-DWORD jmpbackaddr3;
-void __declspec(naked) MidAroundUnknownGame() {
-    __asm {
-        mov dword ptr[ebx + 0x814], 0x1;
-        //mov dword ptr[ebx], 0x1;
-        
-        jmp[jmpbackaddr3];
-    }
-}
+
 
 
 typedef void(__stdcall *LastStandSetMaps)(void* param1);
@@ -85,17 +100,31 @@ void __fastcall LastLobbyDetour(int param1, void* unused, void* unused2) {
     lastlobby_org(param1, unused, unused2);
 }
 
+typedef void(__thiscall *LobbyCallback)(void* tis, int param1);
+LobbyCallback lobbyback_org = nullptr;
 
+void __fastcall LobbyCallbackDetour(void* tis, void* unused, int param1) {
+    p1 = tis;
+    p2 = param1;
+    lobbyback_org(tis, param1);
+}
 
 //in last stand just starts matchmaking even though this function call is wrong
 typedef void(__fastcall *OnClickStart)(int param1, void* unused);
 OnClickStart clickst_org = nullptr;
 
+typedef void(__stdcall *GameSetupFormStartGame)(void** param1);
+GameSetupFormStartGame gmset_org = nullptr;
 
+typedef int(__fastcall *CreateMatch)(void* param1);
+CreateMatch createmat_org = nullptr;
+
+//use startmultiplayergame instead
+//look into CreateMatchInfo, CreateHosting, CreateMatch? (the other two are inlined functions for a switch)
 DWORD WINAPI MainThread(LPVOID param) {
     while (true) {
         if (GetAsyncKeyState(VK_F6) & 0x80000) {
-
+            gmset_org((void**)slast_param1);
         }
         Sleep(100);
     }
@@ -118,21 +147,31 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH:
+        CreateThread(0, 0, MainThread, hModule, 0, 0);
         base = (DWORD)GetModuleHandleA("DOW2.exe");
 
         weirdglobal = (base + 0xf3567c);
         GameInfo = (base + 0xf35a78);
         slast_param1 = (base + 0xc89c84);
+        slast_param2 = (base + 0xc8f86c);
 
         last_setmaps = reinterpret_cast<LastStandSetMaps>(base + 0x7a5de);
         lastlobby_org = reinterpret_cast<LastStandLobby>(base + 0x78aa1);
+        lobbyback_org = reinterpret_cast<LobbyCallback>(base + 0x1412d0);
 
         start_org = reinterpret_cast<StartGame>(base + 0x5b9eb);
         slast_org = reinterpret_cast<StartLastStand>(base + 0x75ee3);
         enst_org = reinterpret_cast<EnableStartButton>(base + 0x7796e);
         clickst_org = reinterpret_cast<OnClickStart>(base + 0x79288);
+        setuph_org = reinterpret_cast<SetuphelperOnMessage>(base + 0x49990);
 
         lastmatchmake = reinterpret_cast<LastStandStartMatchmake>(base + 0x7934a);
+        gmset_org = reinterpret_cast<GameSetupFormStartGame>(base + 0x6fe0c);
+        createmat_org = reinterpret_cast<CreateMatch>(base + 0x1edf80);
+
+        ned1 = reinterpret_cast<Need1>(base + 0x458df);
+        ned2 = reinterpret_cast<Need2>(base + 0x45a18);
+        ned3 = reinterpret_cast<Need3>(base + 0x4a7cb);
 
         //patching the call to LastStandSetMaps to get the param1 we need
 
@@ -145,7 +184,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         //JmpPatch(reinterpret_cast<BYTE*>(base + 0x47459), (DWORD)MidCheckGameValid, 5);
 
 
-        jmpbackaddr3 = (base + 0x1a34a);
+        //jmpbackaddr3 = (base + 0x1a34a);
         //JmpPatch(reinterpret_cast<BYTE*>(base + 0x1a291), (DWORD)MidAroundUnknownGame, 6);
        
         //NopPatch(reinterpret_cast<BYTE*>(base + 0x75f3a), 4);
@@ -158,6 +197,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         DetourUpdateThread(GetCurrentThread());
         DetourAttach((void**)&last_setmaps, LastSetMapsDetour);
         DetourAttach((void**)&lastlobby_org, LastLobbyDetour);
+        DetourAttach((void**)&lobbyback_org, LobbyCallbackDetour);
         DetourTransactionCommit();
 
         break;
