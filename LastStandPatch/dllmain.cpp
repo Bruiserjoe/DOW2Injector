@@ -38,6 +38,9 @@ LastStandLobbyUpdate lastlobbyupdate = nullptr;
 typedef void(__stdcall *SetuphelperOnMessage)(int param1, int param2);
 SetuphelperOnMessage setuph_org = nullptr;
 
+typedef void(__stdcall *StartMultiplayerGame)(int param1);
+StartMultiplayerGame startmg_org = nullptr;
+
 bool start_mode = false;
 
 typedef int* (__stdcall* Need1)(void* param1);
@@ -50,6 +53,21 @@ Need3 ned3 = nullptr;
 void* p1;
 int p2;
 
+//00602B99 - 
+//0053B02A - 
+//00449C40 - 1
+
+//do this now
+//00449501 - 1 StartMultiplayerGame
+//004491EC - 2 
+//0047985B - 3
+//004531F7 - 4
+//00682013 - 5
+//00680CAC - 6
+//00680CAC - 6
+//00680D17 - 7 - calls the previous function somewhere
+//0040e637 - 8
+//0041D961 - 9, - analyze the parameter from here down and see what we get, then trying passing to GameSetupFormStartGame
 DWORD jmpbackaddr;
 void __declspec(naked) MatchmakeButton() {
     __asm {
@@ -113,18 +131,28 @@ void __fastcall LobbyCallbackDetour(void* tis, void* unused, int param1) {
 typedef void(__fastcall *OnClickStart)(int param1, void* unused);
 OnClickStart clickst_org = nullptr;
 
+//00681B3C
+//00E07293
 typedef void(__stdcall *GameSetupFormStartGame)(void** param1);
 GameSetupFormStartGame gmset_org = nullptr;
 
 typedef int(__fastcall *CreateMatch)(void* param1);
 CreateMatch createmat_org = nullptr;
+//00E07C88
+// //00E07291
+//00DB8CC2
+typedef void(__fastcall *MultiplayerOnClickStart)(int param1);
+MultiplayerOnClickStart multistart_org = nullptr;
 
+//ignore this for now
 //use startmultiplayergame instead
-//look into CreateMatchInfo, CreateHosting, CreateMatch? (the other two are inlined functions for a switch)
+//try finding the caller of last stand start game, then get the param from there, and recreate the function call around it
+//look into MainFunctionCalling? and MenuCallbacks to get the parameter to multistart_org 
 DWORD WINAPI MainThread(LPVOID param) {
     while (true) {
         if (GetAsyncKeyState(VK_F6) & 0x80000) {
-            gmset_org((void**)slast_param1);
+            multistart_org(slast_param1);
+            //gmset_org((void**)slast_param1);
         }
         Sleep(100);
     }
@@ -168,6 +196,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         lastmatchmake = reinterpret_cast<LastStandStartMatchmake>(base + 0x7934a);
         gmset_org = reinterpret_cast<GameSetupFormStartGame>(base + 0x6fe0c);
         createmat_org = reinterpret_cast<CreateMatch>(base + 0x1edf80);
+        multistart_org = reinterpret_cast<MultiplayerOnClickStart>(base + 0x6ffe3);
+        startmg_org = reinterpret_cast<StartMultiplayerGame>(base + 0x49386);
 
         ned1 = reinterpret_cast<Need1>(base + 0x458df);
         ned2 = reinterpret_cast<Need2>(base + 0x45a18);

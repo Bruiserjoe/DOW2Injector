@@ -8,20 +8,6 @@ DWORD slots_addr;
 //https://guidedhacking.com/threads/how-to-hook-thiscall-function-__thiscall-calling-convention.8542/
 
 
-void MemPatch(BYTE* dst, BYTE* src, size_t size) {
-    DWORD prot;
-    VirtualProtect(dst, size, PAGE_EXECUTE_READWRITE, &prot);
-    std::memcpy(dst, src, size);
-    VirtualProtect(dst, size, prot, &prot);
-}
-
-void NopPatch(BYTE* dst, size_t size) {
-    DWORD prot;
-    VirtualProtect(dst, size, PAGE_EXECUTE_READWRITE, &prot);
-    std::memset(dst, 0x90, size);
-    VirtualProtect(dst, size, prot, &prot);
-}
-
 
 
 uintptr_t FindDMAAddy(uintptr_t ptr, std::vector<unsigned int> offsets)
@@ -183,6 +169,24 @@ void __fastcall FFAUIDetour(int param1, void* unu) {
 
 //look into UpdateLobbyOnClick
 
+DWORD jmpbackaddr = 0;
+DWORD32 team_num = 0;
+
+typedef void(__stdcall *N1)(size_t param1, int* param2, size_t param3, int *param4);
+N1 funez = nullptr;
+
+void __declspec(naked) MidTeamSetupDetour() {
+    __asm {
+        call funez;
+        push ebx;
+        mov ebx, dword ptr[esp + 0x244];
+        mov team_num, ebx;
+        pop ebx;
+        jmp[jmpbackaddr];
+    }
+}
+
+
 //try MapPreferencesPanel::invokecreatemaplist and MultiplayerLobbyMenuUpdate
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
@@ -244,6 +248,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         //MemPatch(reinterpret_cast<BYTE*>(base + 0x76c137), src, 3);
         //NopPatch(reinterpret_cast<BYTE*>(base + 0x91689), 6);
 
+        funez = reinterpret_cast<N1>(base + 0x39dc90);
+        jmpbackaddr = (base + 0x39e26a);
+        JmpPatch(reinterpret_cast<BYTE*>((base + 0x39e265)), (DWORD)MidTeamSetupDetour, 5);
 
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());

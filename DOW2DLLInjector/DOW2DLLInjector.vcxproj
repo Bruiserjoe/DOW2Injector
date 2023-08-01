@@ -137,7 +137,6 @@
     <ClCompile Include="DLLInjection.cpp" />
     <ClCompile Include="DOW2DLLInjector.cpp" />
     <ClCompile Include="Config.cpp" />
-    <ClCompile Include="Memory.cpp" />
     <ClCompile Include="Process.cpp" />
   </ItemGroup>
   <ItemGroup>

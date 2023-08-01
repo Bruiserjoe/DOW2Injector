@@ -208,6 +208,9 @@ void readListConfig(std::string path) {
     }
     file.close();
 }
+//workspace for infinite player slots
+
+
 
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)

@@ -20,7 +20,7 @@
 // -fix drop down for 8p ffa slots. Also figure out how to make lobby size "infinite"
 // -superheavy mode with no limits on popcap or heavies limit as a toggle
 // -look into suggestions
-//  -Fix soundbug
+//  -Fix soundbug, probably in shark.dll or fmod related
 //  -add lan back
 //  -improve performance
 //  -Fix last stand map issues
@@ -82,6 +82,4 @@ public:
     void findDLLS(std::string folder);
     void orderDLLS();
     bool freeDLL(std::string name);
-    //memory related
-    void MemPatch(BYTE* dst, BYTE* src, size_t size);
 };
