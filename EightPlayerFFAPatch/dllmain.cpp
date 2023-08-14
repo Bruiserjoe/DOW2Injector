@@ -7,7 +7,9 @@ DWORD slots_addr;
 
 //https://guidedhacking.com/threads/how-to-hook-thiscall-function-__thiscall-calling-convention.8542/
 
-
+//fix the crash on changing to 6p map from full 8p
+//fix dropdown on 8p ffa
+//fix replays somehow
 
 
 uintptr_t FindDMAAddy(uintptr_t ptr, std::vector<unsigned int> offsets)

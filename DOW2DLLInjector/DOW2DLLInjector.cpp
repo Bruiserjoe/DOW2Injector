@@ -13,14 +13,9 @@
 
 
 
+
 int main()
 {
-    /*size_t st = 0x600;
-    //testing binary
-    std::bitset<32> bitst(st);
-    std::cout << "bits: " << bitst << "\n";
-    */
-
     Injector inject;
     inject.start();
 }

@@ -1,6 +1,6 @@
 #include "Injector.h"
 #include <algorithm>
-
+#include <mutex>
 
 void Injector::setProcess(std::string process) {
     //injecting the dlls
@@ -117,6 +117,24 @@ std::string cullSlashExe(std::string str) {
     }
     return ret;
 }
+std::mutex mtx;
+bool run = true;
+void _windThread() {
+    Window wind("DOW2 Injector", 600, 600);
+    while (true) {
+        mtx.lock();
+        if (!wind.processMessages()) {
+            run = false;
+        }
+        if (!run) {
+            mtx.unlock();
+            break;
+        }
+        mtx.unlock();
+        Sleep(10);
+    }
+}
+
 
 void Injector::start() {
     OpenClipboard(NULL);
@@ -129,6 +147,10 @@ void Injector::start() {
     exe_name = cullSlashExe(exe_name);
 
     std::string args = readConfig();
+    std::thread thr;
+    if (window) {
+        thr = std::thread(_windThread);
+    }
     findDLLS(mods_folder);
     startProcess(args);
    
@@ -165,6 +187,12 @@ void Injector::start() {
     //injecting mods folder dlls
     for (auto& i : dlls) {
         injectDLL(mods_folder + "\\" + i);
+    }
+    mtx.lock();
+    run = false;
+    mtx.unlock();
+    if (window) {
+        thr.join();
     }
     //system("pause");
 }

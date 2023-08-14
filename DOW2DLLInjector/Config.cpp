@@ -82,6 +82,20 @@ std::string Injector::readConfig() {
         pos = str.find("sleep-after-menu:");
         con = readAfterColon(str, pos);
         sleep_time = std::stoi(con);
+        pos = str.find("console:");
+        con = readAfterColon(str, pos);
+        if (con.compare("true") != 0) {
+            ShowWindow(GetConsoleWindow(), SW_HIDE);
+        }
+        pos = str.find("window:");
+        con = readAfterColon(str, pos);
+        if (con.compare("true") != 0) {
+            window = false;
+        }
+
+        pos = str.find("img:");
+        con = readAfterColon(str, pos);
+        image_path = con;
         //reading load order
         pos = str.find("load-order:");
         std::string line = readLine(str, &pos);
@@ -101,6 +115,9 @@ std::string Injector::readConfig() {
         file << "exe-path: local\n";
         file << "load-order:\n"; 
         file << "end-load\n";
+        file << "console: true\n";
+        file << "window: true\n";
+        file << "img: test.bmp\n";
         file.close();
         mods_folder = "mods";
         ret = "DOW2.exe";

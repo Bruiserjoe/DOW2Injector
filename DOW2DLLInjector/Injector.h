@@ -16,7 +16,10 @@
 // -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
 //  -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
 // -figure out where the menu screens are stored so we can add our own and edit the behavior
-// -look into dll hijacking
+// -look into dll hijacking, probably use xthread
+// -remove setupdll?
+// -make a mod launcher so easier to use different mods
+//      -add loading png for each loader config if author wants
 // -fix drop down for 8p ffa slots. Also figure out how to make lobby size "infinite"
 // -superheavy mode with no limits on popcap or heavies limit as a toggle
 // -look into suggestions
@@ -26,7 +29,36 @@
 //  -Fix last stand map issues
 //  -Add more heros to last stand
 //  -reverse server code
-//  -look into re-adding dow 1 pathfinding supposed to be more efficient
+
+class Window {
+private:
+    HWND wind;
+    HINSTANCE instance;
+    HDC dc;
+    LPCSTR class_name;
+    size_t width;
+    size_t height;
+public:
+    Window(const Window&) = delete;
+    Window& operator =(const Window&) = delete;
+    Window(LPCSTR name, size_t w, size_t h);
+    ~Window();
+
+
+    int getWidth() {
+        return width;
+    }
+    int getHeight() {
+        return height;
+    }
+    HWND getHwnd() {
+        return wind;
+    }
+    bool processMessages();
+
+};
+
+
 
 //don't pass this around in functions, no copy constructor or move constructor
 class Injector {
@@ -38,6 +70,8 @@ private:
     std::vector<std::string> dlls;
     std::vector<std::string> load_order;
     size_t sleep_time;
+    std::string image_path;
+    bool window = true;
     DWORD get_proc_id(const char* name) {
         DWORD p_id = 0;
         PROCESSENTRY32 pe32;

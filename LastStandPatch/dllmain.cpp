@@ -2,12 +2,11 @@
 #include "framework.h"
 
 //get solo game booting working
-// -the lobby doesnt exist till a match is made, so we gotta create one first
 // -maybe try getting force start working in regular pvp
 //get new heros able to be added
 
 DWORD base;
-
+HMODULE platform;
 
 DWORD32 weirdglobal;
 
@@ -58,22 +57,97 @@ int p2;
 //00449C40 - 1
 
 //do this now
-//00449501 - 1 StartMultiplayerGame
-//004491EC - 2 
-//0047985B - 3
-//004531F7 - 4
-//00682013 - 5
-//00680CAC - 6
-//00680CAC - 6
-//00680D17 - 7 - calls the previous function somewhere
-//0040e637 - 8
-//0041D961 - 9, - analyze the parameter from here down and see what we get, then trying passing to GameSetupFormStartGame
+//0046fe0c - 0 or laststandstartgame
+//00449501 - 1 StartMultiplayerGame - doesnt matter what it passes to function below this(probably actually does)
+//004491EC - 2 - passes esi to StartMultiplayerGame, esi is eax
+//0047985B - 3 - eax is set to "dword ptr[esi + 0xa0], esi is ecx
+//004531F7 - 4 - passes this, 
+//00682013 - 5 - passes this
+//00680CAC - 6 - passes strange member of param1?
+//00680D17 - 7 - calls the previous function somewhere(just return for above spot)
+//0040e637 - 8 - passes an member of this functions param1(ecx), is in ebx, so member of application
+//0041D961 - 9, - passes esi to ecx then calls the function above, esi is Application variable
+
+//0041D961 - Applicaton, in ecx
+//0040e637 - mov param1, dword ptr[eax + 0x137c];, mov eax, dword ptr[ebx + 0x4];, mov ebx, ecx(param1);
+//00680CAC - mov ecx, edi; mov edi, dword ptr[esi]; mov esi, dword ptr[eax + 0x4]; mov eax, dword ptr[ecx]; mov ecx, dword ptr[ebx]; mov ebx, dword ptr[ebp + param1];
+//00682013 - passes param1, which is above value, just ecx unchanged
+//004531F7 - mov this(ecx), dword ptr[esi]; mov esi, dword ptr[edi + 0x34]; mov edi, this(ecx);
+//0047985B - mov eax, dword ptr[esi + 0xa0];, mov esi, ecx(prev param1);
+//004491EC - push esi;, mov esi, eax;
+
+//find where the param + 0x2c is edited and hook that function, look at second function in call tree
+
+typedef void(__stdcall *MultiplayerGameStartHandler)(); //takes a parameter in eax
+MultiplayerGameStartHandler mgstarth_org = nullptr;
+DWORD mgstarth_addr = 0;
+
+typedef void* (__stdcall *GetApplication)();
+GetApplication get_app = nullptr;
+DWORD32 startmultiparam = 0;
+void setStartMultiplayerParam() {
+    //Plat::App::GetApplication() to get base
+    DWORD32 base1 = (DWORD32)get_app();
+    base1 = (base + 0xf35088);
+    __asm {
+        push edi;
+        push eax;
+        mov eax, dword ptr[base1];
+        mov edi, dword ptr[eax];
+        mov eax, edi;
+        /*mov edi, dword ptr[eax + 0x4];
+        mov eax, edi;
+        mov edi, dword ptr[eax + 0x137c];
+        mov eax, edi;*/
+        //two possiblitues
+       
+        
+        mov edi, dword ptr[eax];
+        mov eax, dword ptr[edi];
+        mov edi, dword ptr[eax + 0x4];
+        mov eax, dword ptr[edi];
+
+        mov edi, dword ptr[eax + 0x34];
+        mov eax, dword ptr[edi];
+
+        mov edi, dword ptr[eax + 0xa0];
+
+        mov startmultiparam, edi;
+        pop eax
+        pop edi;
+    }
+    
+}
+
+extern "C" void EZFUNCTION() {
+    NopPatch(reinterpret_cast<BYTE*>(base + 0x491e4), 2);
+    NopPatch(reinterpret_cast<BYTE*>(base + 0x491ec), 4);
+    NopPatch(reinterpret_cast<BYTE*>(base + 0x491f0), 4);
+}
+
+extern "C" void EZFUNCTION2() {
+    MemPatch(reinterpret_cast<BYTE*>(base + 0x491e4), (BYTE*)"\x75\x0e", 2);
+    MemPatch(reinterpret_cast<BYTE*>(base + 0x491ec), (BYTE*)"\x83\x4e\x2c\xff", 4);
+    MemPatch(reinterpret_cast<BYTE*>(base + 0x491f0), (BYTE*)"\xc6\x46\x30\x00", 4);
+}
+
+
 DWORD jmpbackaddr;
 void __declspec(naked) MatchmakeButton() {
     __asm {
         pop ecx;
-        push slast_param1;
-        call slast_org;
+        
+        call setStartMultiplayerParam;
+        call EZFUNCTION;
+        /*push eax;
+        call startmg_org;
+        */
+        mov ecx, startmultiparam;
+        mov edx, dword ptr[ecx + 0x2c];
+        //try and figure out why chaning ecx+0x2c throws an exception, make sure the startmultiparam is actual value we need
+        mov eax, ecx;
+        call mgstarth_org; //this doesnt start game because the +0x2c isnt zero
+        call EZFUNCTION2;
         jmp [jmpbackaddr];
     }
 }
@@ -82,9 +156,6 @@ void __declspec(naked) MatchmakeButton() {
 //0045FEC7
 //00458175
 
-extern "C" void EZFUNCTION() {
-
-}
 
 //using this to edit the value we want in SetupHelperOnMessage
 DWORD jmpbackaddr2;
@@ -151,8 +222,25 @@ MultiplayerOnClickStart multistart_org = nullptr;
 DWORD WINAPI MainThread(LPVOID param) {
     while (true) {
         if (GetAsyncKeyState(VK_F6) & 0x80000) {
-            multistart_org(slast_param1);
+            //multistart_org(slast_param1);
             //gmset_org((void**)slast_param1);
+            //setStartMultiplayerParam();
+            __asm {
+               // mov eax, startmultiparam;
+                //call mgstarth_org;
+            }
+            setStartMultiplayerParam();
+            DWORD32 t = startmultiparam;
+            __asm {
+                mov ecx, t;
+                mov edx, dword ptr [ecx + 0x2c];
+                mov dword ptr[ecx + 0x2c], 0x0;
+                mov eax, startmultiparam;
+                call mgstarth_org;
+            }
+            //mgstarth_org();
+            //startmg_org(startmultiparam);
+            //startmg_org(startmultiparam);
         }
         Sleep(100);
     }
@@ -177,11 +265,13 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
     case DLL_PROCESS_ATTACH:
         CreateThread(0, 0, MainThread, hModule, 0, 0);
         base = (DWORD)GetModuleHandleA("DOW2.exe");
+        platform = GetModuleHandleA("Platform.dll");
 
         weirdglobal = (base + 0xf3567c);
         GameInfo = (base + 0xf35a78);
         slast_param1 = (base + 0xc89c84);
         slast_param2 = (base + 0xc8f86c);
+        mgstarth_addr = (base + 0x4917a);
 
         last_setmaps = reinterpret_cast<LastStandSetMaps>(base + 0x7a5de);
         lastlobby_org = reinterpret_cast<LastStandLobby>(base + 0x78aa1);
@@ -199,6 +289,12 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         multistart_org = reinterpret_cast<MultiplayerOnClickStart>(base + 0x6ffe3);
         startmg_org = reinterpret_cast<StartMultiplayerGame>(base + 0x49386);
 
+        mgstarth_org = reinterpret_cast<MultiplayerGameStartHandler>(base + 0x4917a);
+        if (platform) {
+            get_app = reinterpret_cast<GetApplication>(GetProcAddress(platform, MAKEINTRESOURCEA(79)));
+            //setStartMultiplayerParam();
+        }
+
         ned1 = reinterpret_cast<Need1>(base + 0x458df);
         ned2 = reinterpret_cast<Need2>(base + 0x45a18);
         ned3 = reinterpret_cast<Need3>(base + 0x4a7cb);
@@ -209,7 +305,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         jmpbackaddr = (base + 0x792a2);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x7929d), (DWORD)MatchmakeButton, 5);
 
-        
+        //noping jzs in StartMultiplayerGame, might break everything
+        //NopPatch(reinterpret_cast<BYTE*>(base + 0x493bf), 6);
+        //NopPatch(reinterpret_cast<BYTE*>(base + 0x493cd), 6);
+
         jmpbackaddr2 = (base + 0x47463);
         //JmpPatch(reinterpret_cast<BYTE*>(base + 0x47459), (DWORD)MidCheckGameValid, 5);
 
