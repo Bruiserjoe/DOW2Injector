@@ -1,10 +1,12 @@
 #include "Injector.h"
 
 
+std::string img_file;
 
-
-void onPaint(HDC hdc) {
-    Gdiplus::Bitmap bmp(L"test.bmp");
+void onPaint(HDC hdc, std::string file) {
+    std::wstring tp(file.length(), L' ');
+    std::copy(file.begin(), file.end(), tp.begin());
+    Gdiplus::Bitmap bmp(tp.c_str());
     Gdiplus::Graphics graphics(hdc);
     Gdiplus::Pen pen(Gdiplus::Color(255, 0, 0, 255));
     graphics.DrawImage(&bmp, 0, 0, 603, 300);
@@ -12,9 +14,8 @@ void onPaint(HDC hdc) {
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
-    HDC hdc, hmemdc;
+    HDC hdc;
     PAINTSTRUCT ps;
-    RECT client;
     switch (message)
     {
     case WM_CREATE:
@@ -22,7 +23,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
         break;
     case WM_PAINT:
         hdc = BeginPaint(hwnd, &ps);
-        onPaint(hdc);
+        onPaint(hdc, img_file);
         EndPaint(hwnd, &ps);
         break;
     case WM_CLOSE:
@@ -42,10 +43,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
 
 //https://learn.microsoft.com/en-us/windows/win32/winmsg/window-class-styles
-Window::Window(LPCSTR name, size_t w, size_t h)
+Window::Window(LPCSTR name, size_t w, size_t h, std::string img_path)
 	: instance(GetModuleHandle(nullptr)) {
 	width = w;
 	height = h;
+    img_file = img_path;
     Gdiplus::GdiplusStartupInput gdiplusStartupInput;
     Gdiplus::GdiplusStartup(&plus_token, &gdiplusStartupInput, NULL);
 

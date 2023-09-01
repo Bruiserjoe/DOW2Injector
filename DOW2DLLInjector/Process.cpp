@@ -119,8 +119,8 @@ std::string cullSlashExe(std::string str) {
 }
 std::mutex mtx;
 bool run = true;
-void _windThread() {
-    Window wind("DOW2 Injector", 600, 300);
+void _windThread(std::string img_path) {
+    Window wind("DOW2 Injector", 600, 300, img_path);
     while (true) {
         mtx.lock();
         if (!wind.processMessages()) {
@@ -149,7 +149,7 @@ void Injector::start() {
     std::string args = readConfig();
     std::thread thr;
     if (window) {
-        thr = std::thread(_windThread);
+        thr = std::thread(_windThread, this->image_path);
     }
     findDLLS(mods_folder);
     startProcess(args);

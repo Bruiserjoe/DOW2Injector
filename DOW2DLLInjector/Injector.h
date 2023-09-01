@@ -42,7 +42,7 @@ private:
 public:
     Window(const Window&) = delete;
     Window& operator =(const Window&) = delete;
-    Window(LPCSTR name, size_t w, size_t h);
+    Window(LPCSTR name, size_t w, size_t h, std::string img_path);
     ~Window();
 
 
