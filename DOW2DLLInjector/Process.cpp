@@ -120,7 +120,7 @@ std::string cullSlashExe(std::string str) {
 std::mutex mtx;
 bool run = true;
 void _windThread() {
-    Window wind("DOW2 Injector", 600, 600);
+    Window wind("DOW2 Injector", 600, 300);
     while (true) {
         mtx.lock();
         if (!wind.processMessages()) {

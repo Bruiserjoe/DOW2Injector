@@ -9,8 +9,8 @@
 #include <libloaderapi.h>
 #include <TlHelp32.h>
 #include <Psapi.h>
-
-
+#include <gdiplus.h>
+#pragma comment (lib,"Gdiplus.lib")
 
 //todo
 // -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
@@ -38,6 +38,7 @@ private:
     LPCSTR class_name;
     size_t width;
     size_t height;
+    ULONG_PTR plus_token;
 public:
     Window(const Window&) = delete;
     Window& operator =(const Window&) = delete;

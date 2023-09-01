@@ -1,39 +1,34 @@
 #include "Injector.h"
 
 
-HBITMAP hbitmap;
+
+
+void onPaint(HDC hdc) {
+    Gdiplus::Bitmap bmp(L"test.bmp");
+    Gdiplus::Graphics graphics(hdc);
+    Gdiplus::Pen pen(Gdiplus::Color(255, 0, 0, 255));
+    graphics.DrawImage(&bmp, 0, 0, 603, 300);
+    
+}
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    HDC hdc, hmemdc;
+    PAINTSTRUCT ps;
+    RECT client;
     switch (message)
     {
     case WM_CREATE:
-        
+        //InvalidateRect(hwnd, NULL, TRUE);
         break;
     case WM_PAINT:
-        PAINTSTRUCT     ps;
-        HDC             hdc;
-        BITMAP          bitmap;
-        HDC             hdcMem;
-        HGDIOBJ         oldBitmap;
-
         hdc = BeginPaint(hwnd, &ps);
-
-        hdcMem = CreateCompatibleDC(hdc);
-        oldBitmap = SelectObject(hdcMem, hbitmap);
-
-        GetObject(hbitmap, sizeof(bitmap), &bitmap);
-        BitBlt(hdc, 0, 0, bitmap.bmWidth, bitmap.bmHeight, hdcMem, 0, 0, SRCCOPY);
-
-        SelectObject(hdcMem, oldBitmap);
-        DeleteDC(hdcMem);
-
+        onPaint(hdc);
         EndPaint(hwnd, &ps);
         break;
     case WM_CLOSE:
         DestroyWindow(hwnd);
         break;
     case WM_DESTROY:
-        DeleteObject(hbitmap);
         PostQuitMessage(0);
         break;
     default:
@@ -51,7 +46,9 @@ Window::Window(LPCSTR name, size_t w, size_t h)
 	: instance(GetModuleHandle(nullptr)) {
 	width = w;
 	height = h;
-	
+    Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+    Gdiplus::GdiplusStartup(&plus_token, &gdiplusStartupInput, NULL);
+
 	class_name = name;
 	WNDCLASS wnd = {};
     wnd.style = CS_HREDRAW | CS_VREDRAW;
@@ -59,7 +56,7 @@ Window::Window(LPCSTR name, size_t w, size_t h)
 	wnd.hInstance = instance;
 	wnd.hIcon = LoadIcon(NULL, IDI_WINLOGO);
 	wnd.hCursor = LoadCursorA(NULL, IDC_ARROW);
-	wnd.hbrBackground = NULL;
+	wnd.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
 	wnd.lpszMenuName = NULL;
 	wnd.cbClsExtra = 0;
 	wnd.cbWndExtra = 0;
@@ -77,11 +74,11 @@ Window::Window(LPCSTR name, size_t w, size_t h)
     rect.top = 0;
     rect.right = rect.left + width;
     rect.bottom = rect.top + height;
+    //| WS_THICKFRAME | WS_SYSMENU | WS_MAXIMIZEBOX | WS_MINIMIZEBOX
+    AdjustWindowRect(&rect, WS_POPUP, false);
 
-    AdjustWindowRect(&rect, WS_POPUP | WS_THICKFRAME | WS_SYSMENU | WS_MAXIMIZEBOX | WS_MINIMIZEBOX, false);
 
-
-	wind = CreateWindowEx(0, class_name, "DOW2 Injector", WS_POPUP | WS_THICKFRAME | WS_SYSMENU | WS_MAXIMIZEBOX | WS_MINIMIZEBOX,
+	wind = CreateWindowEx(0, class_name, "DOW2 Injector", WS_POPUP,
 		rect.left, rect.right, rect.right - rect.left, rect.bottom - rect.top, NULL, NULL, instance, NULL);
 	if (wind == NULL) {
 		std::cout << "Failed to create window\n";
@@ -97,9 +94,8 @@ Window::Window(LPCSTR name, size_t w, size_t h)
     rect.right = rect.left + width;
     rect.bottom = rect.top + height;
     MoveWindow(wind, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, true);
-
     ShowWindow(wind, SW_SHOW);
-    hbitmap = (HBITMAP)LoadImage(instance, "mods\\test.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+    UpdateWindow(wind);
 }
 
 
@@ -117,5 +113,6 @@ bool Window::processMessages() {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+    Gdiplus::GdiplusShutdown(plus_token);
     return true;
 }
