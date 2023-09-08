@@ -254,6 +254,12 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         jmpbackaddr = (base + 0x39e26a);
         JmpPatch(reinterpret_cast<BYTE*>((base + 0x39e265)), (DWORD)MidTeamSetupDetour, 5);
 
+        src = (BYTE*)"\x83\xbe\x98\x00\x00\x00\x08";
+        MemPatch(reinterpret_cast<BYTE*>(base + 0x47c47), src, 7);
+        
+
+
+
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
         DetourAttach((void**)&teamset_org, TeamSetupDetour);
