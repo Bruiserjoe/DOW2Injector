@@ -17,9 +17,7 @@
 //  -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
 // -figure out where the menu screens are stored so we can add our own and edit the behavior
 // -look into dll hijacking, probably use xthread
-// -remove setupdll?
-// -make a mod launcher so easier to use different mods
-//      -add loading png for each loader config if author wants
+// -game finder for all mods, so easier to find match, similar to FAF(need money for this)
 // -fix drop down for 8p ffa slots. Also figure out how to make lobby size "infinite"
 // -superheavy mode with no limits on popcap or heavies limit as a toggle
 // -look into suggestions

@@ -17,6 +17,7 @@ void __declspec(naked) MidLobbyType() {
 }
 
 
+
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -29,7 +30,16 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     case DLL_PROCESS_ATTACH:
         base = (DWORD)GetModuleHandleA("DOW2.exe");
         jmpback_lobbytype = (base + 0x1EE414);
+        //patches lobby code to always be setup as a lan lobby
         JmpPatch(reinterpret_cast<BYTE*>((base + 0x1EE40E)), (DWORD)MidLobbyType, 6);
+        //removes updating of game list
+        NopPatch(reinterpret_cast<BYTE*>(base + 0x6B916), 6);
+        
+        
+        //testing
+        //NopPatch(reinterpret_cast<BYTE*>(base + 0x3A9B63), 5);
+        //jmpback_midstats = (base + 0x64D64);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x64CB8), (DWORD)MidStatsPopGenerate, 7);
     case DLL_PROCESS_DETACH:
         break;
     }
