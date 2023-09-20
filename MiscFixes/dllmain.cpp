@@ -22,6 +22,14 @@ DWORD base;
 00459595 - PopupMenu_OnClickItem
 004592FB - PopupMenu_OnExit
 */
+
+/*
+slot dropdown generators
+00491FD5 - observer drop down generation
+0049210A - regular slot drop down generation
+0049265A - closed slot drop down generation
+*/
+
 DWORD jmpback_midstats;
 void __declspec(naked) MidStatsPopGenerate() {
     __asm {
@@ -45,6 +53,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         //NopPatch(reinterpret_cast<BYTE*>(base + 0x3A9B63), 5);
         jmpback_midstats = (base + 0x64D64);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x64CB8), (DWORD)MidStatsPopGenerate, 7);
+
     case DLL_PROCESS_DETACH:
         break;
     }

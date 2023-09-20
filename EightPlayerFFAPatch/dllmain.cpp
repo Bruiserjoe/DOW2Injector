@@ -70,80 +70,46 @@ SetCxxFHandle SetCxxFrameHandle = nullptr;
 typedef int* (__stdcall *SetupData)(void* t);
 SetupData set_data = nullptr;
 
+DWORD jmpback_midobserv;
+void __declspec(naked) MidObserv() {
+    __asm {
+        pop esi;
+        pop ebx;
+        jmp[jmpback_midobserv];
+    }
+}
+
+
 //ebp stays the same before and after call
 //just rewrite the whole function in here and maybe we figure it out
 typedef void(__stdcall *PopulatePlayerList)(void* tis);
 PopulatePlayerList pop_org = nullptr;
 void __stdcall PopulateDetour(void* tis) {
-    /*void* t = reinterpret_cast<void*>(base + 0xb127db);
-    __asm {
-        mov eax, t;
-        call SetCxxFrameHandle;
-        mov eax, 0x168;
-        //call alloca probe here
-        push ebx;
-        push esi;
-        push edi;
-        lea eax, [ebp + -0x34];
-        mov t, eax;
-    }
-    set_data(t);
-    int ebp_4 = 0;
-
-    __asm {
-        pop edi;
-        pop esi;
-        pop ebx;
-    }*/
-    /*
-    void* eb;
-    __asm {
-        push eax;
-        mov eax, ebp;
-        mov eb, eax;
-        pop eax;
-    }
-
-    int* t = (int*)eb;
-
-    int* t1 = t + -0x90;
-    int* t2 = t + -0x94;
-    */
-    /*int* eb;
-    __asm {
-        push eax;
-        mov eax, dword ptr[ebp + 0xfffffe98];
-        mov eb, eax;
-        pop eax;
-    }
-    int val = eb[2];*/
-
     lobby_slots = *((DWORD*)slots_addr);
-    /*BYTE* src;
-    if (l_lobby != lobby_slots) {
-        if (lobby_slots >= 8) {
-            src = (BYTE*)"\xBE\x0A\x00\x00\x00\x90";
-            MemPatch(reinterpret_cast<BYTE*>(base + 0x9146f), src, 6);
-
-            //src = (BYTE*)"\x90\x90\x90\x90\x90\x90";
-            //MemPatch(reinterpret_cast<BYTE*>(base + 0x2b16), src, 6);
-        }
-        else {
-            src = (BYTE*)"\x8b\xb5\xa0\xfe\xff\xff";
-            MemPatch(reinterpret_cast<BYTE*>(base + 0x9146f), src, 6);
-        }
-    }*/
     BYTE* src;
     if (l_lobby != lobby_slots) {
-        
+        if (lobby_slots < 8) {
+            src = (BYTE*)"\xc7\x45\xb4\x06\x00\x00\x00";
+            MemPatch(reinterpret_cast<BYTE*>(base + 0x9148c), src, 7);
+            src = (BYTE*)"\x80\x7D\x0C\x00\x74\x12\x80\x7D\x10\x00\x75\x0C";
+            MemPatch(reinterpret_cast<BYTE*>(base + 0x921D0), src, 12);
+            src = (BYTE*)"\xE8\xD7\x00\x00\x00";
+            MemPatch(reinterpret_cast<BYTE*>(base + 0x91EE6), src, 5);
+        }
+        else {
+            src = (BYTE*)"\xc7\x45\xb4\x08\x00\x00\x00";
+            MemPatch(reinterpret_cast<BYTE*>(base + 0x9148c), src, 7);
+            //00491EA2 - regular slot
+            //00491EC2 - closed slot
+            jmpback_midobserv = (base + 0x91EC2);
+            JmpPatch(reinterpret_cast<BYTE*>(base + 0x91EE6), (DWORD)MidObserv, 5);
+            NopPatch(reinterpret_cast<BYTE*>(base + 0x921D0), 12);
+
+        }
     }
 
     l_lobby = lobby_slots;
     pop_org(tis);
-    if (lobby_slots >= 8) {
-        //src = (BYTE*)"\xff\x15\x34\x70\xf8\x00";
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x2b16), src, 6);
-    }
 }
 
 typedef void(__stdcall *GetMaxFrameTime)(size_t player_count);
@@ -212,63 +178,24 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         set_data = reinterpret_cast<SetupData>(base + 0x59004);
 
         slots_addr = FindDMAAddy(base + 0x00F35A78, { 0x17C });
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x76c137), src, 3);
-        //src = (BYTE*)"\xc7\x44\x24\x38\x4\x0\x0\x0";
-        src = (BYTE*)"\x83\xff\x10";
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x47cd7), src, 3);
-        src = (BYTE*)"\x83\xbe\x98\x0\x0\x0\x8";
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x47c47), src, 7);
-        src = (BYTE*)"\x83\xff\x10";
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x47da3), src, 3);
-        //this mempatches which map list is supposed to be used, could be useful in other things
-        src = (BYTE*)"\x80\x7b\x5c\x1";
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x86e3c), src, 4);
-        src = (BYTE*)"\xc7\x45\xb4\x8\x0\x0\x0";
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x9148c), src, 8);
-        src = (BYTE*)"\xc7\x45\xec\x8\x0\0\0";
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x915ab), src, 7);
 
+        //only needed ones
         src = (BYTE*)"\xc7\x45\xb4\x08\x00\x00\x00";
         MemPatch(reinterpret_cast<BYTE*>(base + 0x9148c), src, 7);
-        src = (BYTE*)"\x83\xbe\x98\x00\x00\x00\x08";
-        MemPatch(reinterpret_cast<BYTE*>(base + 0x47c47), src, 7);
-
-        src = (BYTE*)"\x6a\x02";
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x47ccf), src, 2);
-
-        src = (BYTE*)"\x83\xf8\x08";
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x76c137), src, 3);
-
-        src = (BYTE*)"\x6a\x08";
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x87fb6), src, 2);
-
-        //src = (BYTE*)"\xc7\x44\x24\x20\x08\x00\x00\x00";
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x66bee), src, 8);
-        //src = (BYTE*)"\xc6\x44\x24\x13\x01";
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x76bfcc), src, 5);
-        //src = (BYTE*)"\x83\xf8\x08";
-        //MemPatch(reinterpret_cast<BYTE*>(base + 0x76c137), src, 3);
-        //NopPatch(reinterpret_cast<BYTE*>(base + 0x91689), 6);
 
         funez = reinterpret_cast<N1>(base + 0x39dc90);
         jmpbackaddr = (base + 0x39e26a);
         JmpPatch(reinterpret_cast<BYTE*>((base + 0x39e265)), (DWORD)MidTeamSetupDetour, 5);
 
-        src = (BYTE*)"\x83\xbe\x98\x00\x00\x00\x08";
-        MemPatch(reinterpret_cast<BYTE*>(base + 0x47c47), src, 7);
         
+      
 
 
 
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
         DetourAttach((void**)&teamset_org, TeamSetupDetour);
-        //DetourAttach((void**)&teams_org, TeamsDetour);
-        //DetourAttach((void**)&pos1_org, Pos1Detour);
         DetourAttach((void**)&pop_org, PopulateDetour);
-        //DetourAttach((void**)&maxframe, MaxFrameDetour);
-        //DetourAttach((void**)&plist_org, PassListDetour);
-        //DetourAttach((void**)&ffa_org, FFAUIDetour);
         DetourTransactionCommit();
     case DLL_PROCESS_DETACH:
         break;
