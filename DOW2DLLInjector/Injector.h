@@ -18,12 +18,12 @@
 // -figure out where the menu screens are stored so we can add our own and edit the behavior
 // -look into dll hijacking, probably use xthread
 // -game finder for all mods, so easier to find match, similar to FAF(need money for this)
-// -fix drop down for 8p ffa slots. Also figure out how to make lobby size "infinite"
+// -figure out how to make lobby size "infinite"
 // -superheavy mode with no limits on popcap or heavies limit as a toggle
 // -look into suggestions
 //  -Fix soundbug, probably in shark.dll or fmod related
 //  -add lan back
-//  -improve performance
+//  -improve performance, improve model drawing(main issue with performance)
 //  -Fix last stand map issues
 //  -Add more heros to last stand
 //  -reverse server code

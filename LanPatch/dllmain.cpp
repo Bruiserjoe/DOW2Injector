@@ -35,11 +35,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         //removes updating of game list
         NopPatch(reinterpret_cast<BYTE*>(base + 0x6B916), 6);
         
-        
-        //testing
-        //NopPatch(reinterpret_cast<BYTE*>(base + 0x3A9B63), 5);
-        //jmpback_midstats = (base + 0x64D64);
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x64CB8), (DWORD)MidStatsPopGenerate, 7);
     case DLL_PROCESS_DETACH:
         break;
     }
