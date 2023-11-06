@@ -36,6 +36,14 @@ void __declspec(naked) MidStatsPopGenerate() {
         jmp[jmpback_midstats];
     }
 }
+DWORD jmpback_midshell;
+void __declspec(naked) MidShellGenerate() {
+    __asm {
+        jmp[jmpback_midshell];
+    }
+}
+
+
 
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -48,11 +56,17 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     case DLL_PROCESS_ATTACH:
         base = (DWORD)GetModuleHandleA("DOW2.exe");
 
-
+       
         //testing
         //NopPatch(reinterpret_cast<BYTE*>(base + 0x3A9B63), 5);
         jmpback_midstats = (base + 0x64D64);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x64CB8), (DWORD)MidStatsPopGenerate, 7);
+
+        //testing for the waaagh meter patch
+        //find buttons using change in waaagh with cheat engine
+        NopPatch(reinterpret_cast<BYTE*>(base + 0x76D18A), 5);
+        //jmpback_midshell = (base + 0x76D1DD);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF45), (DWORD)MidShellGenerate, 6);
 
     case DLL_PROCESS_DETACH:
         break;

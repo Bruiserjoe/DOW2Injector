@@ -249,13 +249,33 @@ DWORD WINAPI MainThread(LPVOID param) {
 //00449C9E function that calls LastStandLobbyUpdate
 //00449C40 function that calls LastStandStartGame
 
-
+DWORD jmpback_last;
+void __declspec(naked) MidLastClick() {
+    __asm {
+        jmp[jmpback_last];
+    }
+}
 //004476BC
 //0044746F
 
 //01813A00
 //004C9070
 //0057DD50
+
+typedef int(__stdcall* GenerateSlotDropDowns)(int a1, int a2);
+GenerateSlotDropDowns slotdrop_org = nullptr;
+
+
+DWORD jmpback_lastinvite;
+void __declspec(naked) MidLastInvite() {
+    __asm {
+        push[ebp - 4];
+        push esi;
+        call slotdrop_org;
+        jmp[jmpback_lastinvite];
+    }
+}
+
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
 
@@ -266,6 +286,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         CreateThread(0, 0, MainThread, hModule, 0, 0);
         base = (DWORD)GetModuleHandleA("DOW2.exe");
         platform = GetModuleHandleA("Platform.dll");
+
+        slotdrop_org = reinterpret_cast<GenerateSlotDropDowns>(base + 0x91D51);
+
 
         weirdglobal = (base + 0xf3567c);
         GameInfo = (base + 0xf35a78);
@@ -321,6 +344,31 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         src = (BYTE*)"\xB8\x01\x00\x00\x00\x90";
         //MemPatch(reinterpret_cast<BYTE*>(base + 0x46a49), src, 6);
         //NopPatch(reinterpret_cast<BYTE*>(base + 0x46a59), 6);       
+
+
+        //OnSlotClicked
+        //B8 EC 1A 49 00 - OnSlotClicked
+        //B8 7F 01 49 00 _ OnLastStandSlotClicked
+
+        //0048F59F
+        //00490D91
+        src = (BYTE*)"\xB8\xEC\x1A\x49\x00";
+        MemPatch(reinterpret_cast<BYTE*>(base + 0x8F59F), src, 5);
+
+        //laststand testing
+        //004902BF
+        //00490251
+        jmpback_last = (base + 0x902BF);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x90249), (DWORD)MidLastClick, 6);
+
+
+        //new testing
+        NopPatch(reinterpret_cast<BYTE*>(base + 0x78F81), 15);
+
+        
+        jmpback_lastinvite = (base + 0x901A2);
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x90197), (DWORD)MidLastInvite, 5);
+
 
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());

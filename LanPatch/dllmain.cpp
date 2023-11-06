@@ -1,6 +1,10 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "framework.h"
 
+//hook updating list of lan games
+//search lan network with the dll instead of relying on game exe
+//update list using lan
+
 //following net_hostmatch up - 5EDF80
 //0055919C
 //00548C92
@@ -15,9 +19,16 @@ void __declspec(naked) MidLobbyType() {
         jmp[jmpback_lobbytype];
     }
 }
+//following GameListForm::Update up the call stack
+//005412DD - callback 
+//0054DC41 - passes result of some function up into next function
+//00615BD5 - calls linked function with global parameter, 
+//005E52AC - ida wont decompile but ghidra shows that it passes the param1 and an offset up, maybe where advertisments are found?
+//0055919C
+//005AB97E
 
-
-
+//look into AddMatchAdvertisment
+//-005F0D80
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -33,7 +44,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         //patches lobby code to always be setup as a lan lobby
         JmpPatch(reinterpret_cast<BYTE*>((base + 0x1EE40E)), (DWORD)MidLobbyType, 6);
         //removes updating of game list
-        NopPatch(reinterpret_cast<BYTE*>(base + 0x6B916), 6);
+        //NopPatch(reinterpret_cast<BYTE*>(base + 0x6B916), 6);
         
     case DLL_PROCESS_DETACH:
         break;

@@ -144,8 +144,9 @@ void Injector::start() {
     TCHAR szExeFileName[MAX_PATH];
     GetModuleFileName(NULL, szExeFileName, MAX_PATH);
     exe_name = std::string(szExeFileName);
+    std::string path = exe_name;
     exe_name = cullSlashExe(exe_name);
-
+    createcfgpath(path);
     std::string args = readConfig();
     std::thread thr;
     if (window) {
@@ -153,7 +154,8 @@ void Injector::start() {
     }
     findDLLS(mods_folder);
     startProcess(args);
-   
+    communicatecfgpath();
+
     bool er = false;
     while (!er) {
         //reading clipboard to see if the menu has been loaded

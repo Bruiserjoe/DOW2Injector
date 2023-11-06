@@ -21,6 +21,10 @@
 // -figure out how to make lobby size "infinite"
 // -superheavy mode with no limits on popcap or heavies limit as a toggle
 // -look into suggestions
+// -shell patch
+// -fix requistion point upgrades fucking up healthbar
+// -finish playercfg update
+// -fix sound lag
 //  -Fix soundbug, probably in shark.dll or fmod related
 //  -add lan back
 //  -improve performance, improve model drawing(main issue with performance)
@@ -70,6 +74,7 @@ private:
     std::vector<std::string> load_order;
     size_t sleep_time;
     std::string image_path;
+    std::string cfg_path;
     bool window = true;
     DWORD get_proc_id(const char* name) {
         DWORD p_id = 0;
@@ -106,6 +111,9 @@ public:
 
     //config related
     std::string readConfig();
+    //playercfg related
+    void createcfgpath(std::string path);
+    void communicatecfgpath();
     //process related
     bool startProcess(std::string args);
     void setProcess(std::string process);
