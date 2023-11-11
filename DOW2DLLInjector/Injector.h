@@ -23,7 +23,6 @@
 // -look into suggestions
 // -shell patch
 // -fix requistion point upgrades fucking up healthbar
-// -finish playercfg update
 // -fix sound lag
 //  -Fix soundbug, probably in shark.dll or fmod related
 //  -add lan back

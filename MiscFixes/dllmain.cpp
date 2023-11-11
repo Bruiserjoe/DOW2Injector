@@ -36,6 +36,15 @@ void __declspec(naked) MidStatsPopGenerate() {
         jmp[jmpback_midstats];
     }
 }
+
+typedef int(__fastcall *CreateSFWidget)(int e1, const char* a2, int a3);
+CreateSFWidget sf_widg = nullptr;
+DWORD sfw = 0;
+
+
+typedef int(__stdcall *GrabA1)(int e1, int e2);
+GrabA1 g_a1 = nullptr;
+
 DWORD jmpback_midshell;
 void __declspec(naked) MidShellGenerate() {
     __asm {
@@ -43,7 +52,20 @@ void __declspec(naked) MidShellGenerate() {
     }
 }
 
+//the shells are stored in 000_data.sga
+//ui/textures/space_marines/hud/selection_panel/x_bg.dds - will have x_bg_{name}.dds for factions, ork uses w_bg.dds
 
+void CreateWidget(int e1, const char* a2, int a3) {
+    __asm {
+        mov esi, a3;
+        mov edx, a2;
+        mov eax, e1;
+        call sfw;
+        pop eax;
+        pop edx;
+        pop esi;
+    }
+}
 
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -51,12 +73,16 @@ BOOL APIENTRY DllMain( HMODULE hModule,
                      )
 {
     BYTE* src = (BYTE*)"";
+    //DWORD e = 0;
+    //DWORD* a = &e;
+    //char* a2 = (char*)new int[0x3C8u];
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
         base = (DWORD)GetModuleHandleA("DOW2.exe");
-
-       
+        sf_widg = reinterpret_cast<CreateSFWidget>(base + 0x285050);
+        sfw = (base + 0x285050);
+        g_a1 = reinterpret_cast<GrabA1>(base + 0x281B50);
         //testing
         //NopPatch(reinterpret_cast<BYTE*>(base + 0x3A9B63), 5);
         jmpback_midstats = (base + 0x64D64);
@@ -64,7 +90,14 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
         //testing for the waaagh meter patch
         //find buttons using change in waaagh with cheat engine
-        NopPatch(reinterpret_cast<BYTE*>(base + 0x76D18A), 5);
+        //B6D18A
+        //NopPatch(reinterpret_cast<BYTE*>(base + 0x76D18A), 5);
+        //g_a1((int)a, (int)"ui\\movies\\hud\\selection_panel");
+        //*(DWORD*)a = (base + 0xD15490);
+        //CreateWidget((int)a, "/waaagh_meter_shell/meter_mc/sm", (int)a2);
+        NopPatch(reinterpret_cast<BYTE*>(base + 0x76D1BA), 7); //try changing the instance we get at this memory location, and see what happens
+        
+        
         //jmpback_midshell = (base + 0x76D1DD);
         //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF45), (DWORD)MidShellGenerate, 6);
 
