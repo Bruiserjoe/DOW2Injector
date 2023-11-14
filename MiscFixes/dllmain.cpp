@@ -37,6 +37,7 @@ void __declspec(naked) MidStatsPopGenerate() {
     }
 }
 
+
 typedef int(__fastcall *CreateSFWidget)(int e1, const char* a2, int a3);
 CreateSFWidget sf_widg = nullptr;
 DWORD sfw = 0;
@@ -44,13 +45,6 @@ DWORD sfw = 0;
 
 typedef int(__stdcall *GrabA1)(int e1, int e2);
 GrabA1 g_a1 = nullptr;
-
-DWORD jmpback_midshell;
-void __declspec(naked) MidShellGenerate() {
-    __asm {
-        jmp[jmpback_midshell];
-    }
-}
 
 //the shells are stored in 000_data.sga
 //ui/textures/space_marines/hud/selection_panel/x_bg.dds - will have x_bg_{name}.dds for factions, ork uses w_bg.dds
@@ -64,6 +58,37 @@ void CreateWidget(int e1, const char* a2, int a3) {
         pop eax;
         pop edx;
         pop esi;
+    }
+}
+
+
+//all of the random callbacks in the function all call to the same function
+
+const char* shell;
+
+extern "C" void drawUI() {
+    std::string s(shell);
+    if (s.compare("race_ork") == 0) {
+        //call the two functions, need to figure out how to call a __userpurge function, https://stackoverflow.com/questions/4099026/how-to-hook-usercall-userpurge-spoils-functions
+        
+    }
+    else {
+        //call the the function that the other factions use, and set that one variable
+    }
+    std::ofstream file;
+    file.open("shell.txt");
+    file << s;
+    file.close();
+}
+
+
+DWORD jmpback_drawui;
+void __declspec(naked) MidDrawUI() {
+    __asm {
+        add eax, 0x70;
+        mov [shell], eax;
+        call drawUI;
+        jmp [jmpback_drawui];
     }
 }
 
@@ -91,15 +116,13 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         //testing for the waaagh meter patch
         //find buttons using change in waaagh with cheat engine
         //B6D18A
-        //NopPatch(reinterpret_cast<BYTE*>(base + 0x76D18A), 5);
         //g_a1((int)a, (int)"ui\\movies\\hud\\selection_panel");
         //*(DWORD*)a = (base + 0xD15490);
         //CreateWidget((int)a, "/waaagh_meter_shell/meter_mc/sm", (int)a2);
-        NopPatch(reinterpret_cast<BYTE*>(base + 0x76D1BA), 7); //try changing the instance we get at this memory location, and see what happens
         
-        
-        //jmpback_midshell = (base + 0x76D1DD);
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF45), (DWORD)MidShellGenerate, 6);
+        //NopPatch(reinterpret_cast<BYTE*>(base + 0x76D1BA), 7); //try changing the instance we get at this memory location, and see what happens, did nothing lol
+        jmpback_drawui = base + 0x76D1A5;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D04D), (DWORD)MidDrawUI, 6);
 
     case DLL_PROCESS_DETACH:
         break;
