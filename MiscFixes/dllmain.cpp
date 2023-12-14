@@ -49,16 +49,29 @@ GrabA1 g_a1 = nullptr;
 //the shells are stored in 000_data.sga
 //ui/textures/space_marines/hud/selection_panel/x_bg.dds - will have x_bg_{name}.dds for factions, ork uses w_bg.dds
 
-void CreateWidget(int e1, const char* a2, int a3) {
+//e1 is the class, a2 is the target, a3 is memory to write to
+int CreateWidget(int e1, const char* e2, int e3) {
+    int t = 0;
     __asm {
-        mov esi, a3;
-        mov edx, a2;
+        mov esi, e3;
+        mov edx, e2;
         mov eax, e1;
         call sfw;
-        pop eax;
-        pop edx;
-        pop esi;
+        mov t, eax;
     }
+    return t;
+}
+DWORD addToDic = 0;
+
+int* callAddToDic(int m1, int m2) {
+    int* t = nullptr;
+    __asm {
+        push m2;
+        mov esi, m1;
+        call addToDic;
+        mov t, eax;
+    }
+    return t;
 }
 
 
@@ -66,33 +79,15 @@ void CreateWidget(int e1, const char* a2, int a3) {
 
 const char* shell;
 
-
+//functions called for setting up texture being drawn too?
 DWORD sub_AD3960 = 0;
-//a1 is the char array, esi0 is the class, a2 gets pushed onto the stack, 
-void callAD3960(int a1, int esi0, int a2) {
-    __asm {
-        lea eax, [a2];
-        push eax;
-        mov eax, a1;
-        mov esi, esi0;
-        call sub_AD3960;
-    }
-}
 DWORD sub_AD3990 = 0;
-//a1 is the char array, esi0 is the class, a2 gets pushed onto the stack, 
-void callAD3990(int a1, int esi0, int a2) {
-    __asm {
-        lea edx, [a2]
-        push edx;
-        mov eax, a1;
-        mov esi, esi0;
-        call sub_AD3990;
-    }
-}
 
 //function which all races call besides orks
-typedef void(__stdcall *sub_686180)(int a1, int a2, int a3);
-sub_686180 race_call = nullptr;
+typedef void(__thiscall *RevealWaaaghUI)(uint8_t* c);
+RevealWaaaghUI reveal_waaagh = nullptr;
+DWORD revwaaagh = 0;
+
 
 //dictionary instance function
 typedef int*(__stdcall *DInstance)(void);
@@ -107,88 +102,6 @@ DWORD DrawUIElement = 0;
 char* v1; //class value for waaagh meter
 int v32; //eax before we change it to the shell we want
 
-const char* waaagh_shell = "/waaagh_meter_shell";
-
-DWORD offset_text = (0);
-DWORD offset_waagh = (0);
-extern "C" void drawUI() {
-    std::string s(shell);
-    if (s.compare("race_ork") == 0) {
-        //call the two functions, need to figure out how to call a __userpurge function, https://stackoverflow.com/questions/4099026/how-to-hook-usercall-userpurge-spoils-functions
-        //callAD3960((int)"/waaagh_meter_shell/waaagh_mc", (int)v1, (int)(v1 + 60));
-        //callAD3990((int)"/waaagh_meter_shell/meter_mc/waaagh_text", (int)v1, (int)(v1 + 56));
-        //testing
-        __asm {
-            //testing
-            lea eax, [esi + 0x3C];
-            push eax;
-            mov eax, offset_waagh;
-            call sub_AD3960;
-            //text*/
-            lea eax, [esi + 0x38];
-            push eax;
-            mov eax, offset_text;
-            call sub_AD3990;
-        }
-    }
-    else {
-        __asm {
-            //testing
-            lea eax, [esi + 0x3C];
-            push eax;
-            mov eax, offset_waagh;
-            call sub_AD3960;
-            //text*/
-            lea eax, [esi + 0x38];
-            push eax;
-            mov eax, offset_text;
-            call sub_AD3990;
-        }
-        //call the the function that the other factions use, and set that one variable
-        //callAD3960((int)"/waaagh_meter_shell/waaagh_mc", (int)v1, (int)(v1 + 60));
-        //callAD3990((int)"/waaagh_meter_shell/meter_mc/waaagh_text", (int)v1, (int)(v1 + 56));
-        if (s.compare("race_marine") == 0) {
-            int* v19 = (int*)*((DWORD*)v1 + 16);
-            if (v19 != 0 && *((BYTE*)v19 + 521) != 1) {
-                int v20 = *v19;
-                *((BYTE*)v19 + 521) = 1;
-                uint8_t* t = (uint8_t*)v19;
-                race_call((int)t, (int)(t + 8), t[521]);
-            }
-        }
-        
-    }
-    //*((float*)v1 + 9) = *(float*)(v32 + 2492);
-    //*((float*)v1 + 11) = *(float*)(v32 + 2508);
-    __asm {
-        mov     eax, [v32];
-        fld     dword ptr[eax + 0x9BC];
-        fstp    dword ptr[esi + 0x24];
-        fld     dword ptr[eax + 0x9CC];
-        fstp    dword ptr[esi + 0x2C];
-    }
-    //drawing waaagh meter shell
-    __asm {
-        //dic instance
-        push waaagh_shell;
-        lea ecx, [v32];
-        push ecx;
-        call DicInstance;
-        //dic key
-        mov ecx, eax;
-        call DicGetKey;
-        //DrawUIElement
-        mov eax, [eax];
-        lea edx, [esi + 0x58];
-        push edx;
-        push eax;
-        call DrawUIElement;
-    }
-    std::ofstream file;
-    file.open("shell.txt");
-    file << s;
-    file.close();
-}
 DWORD jmpback_drawui;
 DWORD jmpback_drawui_t;
 void __declspec(naked) MidDrawUI() {
@@ -198,11 +111,35 @@ void __declspec(naked) MidDrawUI() {
         mov [shell], eax; //putting into shell var
         mov [v1], esi; //putting esi into v1 for use later
 
-        //calling function
-        call drawUI; //calling the actual function
+        
         jmp [jmpback_drawui_t];
     }
 }
+typedef int(__stdcall *sub_681B50)(int a1, int a2);
+sub_681B50 call_681B50 = nullptr;
+
+DWORD* a1 = nullptr;
+DWORD SPVFT = 0;
+
+DWORD selectuielement = 0;
+
+
+char* test1 = nullptr;
+DWORD test_jmpback = 0;
+void __declspec(naked) TestMidDrawShell() {
+    __asm {
+        //lea ecx, [esi+0x48];
+        mov ecx, dword ptr[test1];
+        //mov ecx, dword ptr[esi + 0x48];
+        mov eax, 0x1;
+        //mov edx, dword ptr[ecx];
+        //mov ecx, dword ptr [ecx];
+        //call revwaaagh;
+        call selectuielement;
+        jmp [test_jmpback];
+    }
+}
+
 
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -219,7 +156,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         base = (DWORD)GetModuleHandleA("DOW2.exe");
         sub_AD3960 = base + 0x6D3960;
         sub_AD3990 = base + 0x6D3990;
-        race_call = reinterpret_cast<sub_686180>(base + 0x286180);
+        reveal_waaagh = reinterpret_cast<RevealWaaaghUI>(base + 0x285660);
+        revwaaagh = (base + 0x285660);
         sf_widg = reinterpret_cast<CreateSFWidget>(base + 0x285050);
         sfw = (base + 0x285050);
         g_a1 = reinterpret_cast<GrabA1>(base + 0x281B50);
@@ -239,9 +177,31 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         DrawUIElement = base + 0x6D39C0;
         jmpback_drawui = base + 0x76D1A5;
         jmpback_drawui_t = base + 0x76D1C1;
-        offset_text = (base + 0xD1522C);
-        offset_waagh = (base + 0xD1520C);
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D04D), (DWORD)MidDrawUI, 6);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D04D), (DWORD)MidDrawUI, 6);
+        test_jmpback = (base + 0x76D18F); //00B6D0C9
+        selectuielement = (base + 0x285450);
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0E0), (DWORD)TestMidDrawShell, 7);
+        NopPatch(reinterpret_cast<BYTE*>(base + 0x76D0BE), 4);
+        NopPatch(reinterpret_cast<BYTE*>(base + 0x76D0C5), 4);
+        call_681B50 = reinterpret_cast<sub_681B50>(base + 0x281B50);
+        test1 = new char[0x3C8];
+        //test1 widget memory not correct, lacking memory address at very end, two ones in two bytes before that, and there should not be any uninit chars in mem block
+        if (test1) {
+            addToDic = base + 0x282760;
+            a1 = new DWORD[0x5C];
+            SPVFT = (base + 0xD15490);
+            call_681B50((int)a1, (int)"ui\\movies\\hud\\selection_panel");
+            *a1 = (DWORD)&SPVFT;
+            a1[12] = 0;
+            a1[13] = 0;
+            a1[14] = 0;
+            a1[15] = 1176256512;
+            a1[16] = 0;
+            a1[17] = 0;
+            CreateWidget((int)a1, "/waaagh_meter_shell/meter_mc/sm", (int)test1);
+            callAddToDic((int)test1, (int)a1);
+           
+        }
         util = GetModuleHandleA("Util.dll");
         if (util) {
             DicInstance = reinterpret_cast<DInstance>(GetProcAddress(util, MAKEINTRESOURCEA(533)));
