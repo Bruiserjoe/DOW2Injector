@@ -50,6 +50,7 @@ GrabA1 g_a1 = nullptr;
 //ui/textures/space_marines/hud/selection_panel/x_bg.dds - will have x_bg_{name}.dds for factions, ork uses w_bg.dds
 
 //e1 is the class, a2 is the target, a3 is memory to write to
+char* test1 = nullptr;
 int CreateWidget(int e1, const char* e2, int e3) {
     int t = 0;
     __asm {
@@ -59,19 +60,28 @@ int CreateWidget(int e1, const char* e2, int e3) {
         call sfw;
         mov t, eax;
     }
+    std::ofstream f;
+    f.open("predic.txt", std::ios::binary);
+    for (size_t i = 0; i < 0x3C8; i++) {
+        f << test1[i];
+    }
+    f.close();
     return t;
 }
 DWORD addToDic = 0;
 
-int* callAddToDic(int m1, int m2) {
-    int* t = nullptr;
+void callAddToDic(int m1, int m2) {
     __asm {
         push m2;
         mov esi, m1;
         call addToDic;
-        mov t, eax;
     }
-    return t;
+    std::ofstream f;
+    f.open("predic.txt", std::ios::binary);
+    for (size_t i = 0; i < 900; i++) {
+        f << test1[i];
+    }
+    f.close();
 }
 
 
@@ -117,14 +127,13 @@ void __declspec(naked) MidDrawUI() {
 }
 typedef int(__stdcall *sub_681B50)(int a1, int a2);
 sub_681B50 call_681B50 = nullptr;
-
+//shit that actually matters lol
 DWORD* a1 = nullptr;
 DWORD SPVFT = 0;
 
 DWORD selectuielement = 0;
 
 
-char* test1 = nullptr;
 DWORD test_jmpback = 0;
 void __declspec(naked) TestMidDrawShell() {
     __asm {
@@ -140,7 +149,40 @@ void __declspec(naked) TestMidDrawShell() {
     }
 }
 
+const char* gnn = "/waaagh_meter_shell/meter_mc/gn";
+const char* sm1 = "/waaagh_meter_shell/meter_mc/sm";
+void __declspec(naked) shellfunc() {
+    __asm {
+        mov esi, test1;
+        mov edx, gnn;
+        mov eax, a1;
+        mov byte ptr[esp + 0x2A4], 0x6E;
+        call sfw;
+        push ebp;
+        mov esi, eax;
+        mov byte ptr[esp + 0x2A8], 0;
+        call addToDic;
+    }
+}
 
+DWORD shellgen_jmpback = 0;
+void __declspec(naked) MidShellGenerate() {
+    __asm {
+        mov a1, ebp;
+        mov esi, test1;
+        mov edx, sm1;
+        mov eax, a1;
+        mov byte ptr[esp + 0x2A4], 0x5C;
+        call sfw;
+        push ebp;
+        mov esi, eax;
+        mov byte ptr[esp + 0x2A8], 0;
+        call addToDic;
+        //call shellfunc;
+        jmp[shellgen_jmpback];
+    }
+}
+//try changing the way the new works??
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -179,29 +221,34 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         jmpback_drawui_t = base + 0x76D1C1;
         //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D04D), (DWORD)MidDrawUI, 6);
         test_jmpback = (base + 0x76D18F); //00B6D0C9
+
+        //used
         selectuielement = (base + 0x285450);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0E0), (DWORD)TestMidDrawShell, 7);
         NopPatch(reinterpret_cast<BYTE*>(base + 0x76D0BE), 4);
         NopPatch(reinterpret_cast<BYTE*>(base + 0x76D0C5), 4);
         call_681B50 = reinterpret_cast<sub_681B50>(base + 0x281B50);
-        test1 = new char[0x3C8];
-        //test1 widget memory not correct, lacking memory address at very end, two ones in two bytes before that, and there should not be any uninit chars in mem block
-        if (test1) {
-            addToDic = base + 0x282760;
-            a1 = new DWORD[0x5C];
-            SPVFT = (base + 0xD15490);
-            call_681B50((int)a1, (int)"ui\\movies\\hud\\selection_panel");
-            *a1 = (DWORD)&SPVFT;
-            a1[12] = 0;
-            a1[13] = 0;
-            a1[14] = 0;
-            a1[15] = 1176256512;
-            a1[16] = 0;
-            a1[17] = 0;
-            CreateWidget((int)a1, "/waaagh_meter_shell/meter_mc/sm", (int)test1);
-            callAddToDic((int)test1, (int)a1);
-           
+
+        //used
+        //shellgen_jmpback = base + 0x73C5E8;
+        //shellgen_jmpback = base + 0x73C1B9;
+        shellgen_jmpback = base + 0x73C1C9;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C19F), (DWORD)MidShellGenerate, 42);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C1C9), (DWORD)MidShellGenerate, 16);
+        addToDic = base + 0x282760;
+        
+        test1 = new char[0x38C];
+        for (size_t i = 0; i < 0x38C; i++) {
+            test1[i] = 0;
         }
+        //test1 widget memory not correct, lacking memory address at very end, two ones in two bytes before that, and there should not be any uninit chars in mem block
+        /*if (test1) {
+            addToDic = base + 0x282760;
+            a1 = (DWORD*)base + 0xEBB6C0;
+            int t2 = CreateWidget((int)a1, "/waaagh_meter_shell/meter_mc/gn", (int)test1);
+            //callAddToDic((int)t2, (int)*a1);
+            
+        }*/
         util = GetModuleHandleA("Util.dll");
         if (util) {
             DicInstance = reinterpret_cast<DInstance>(GetProcAddress(util, MAKEINTRESOURCEA(533)));
