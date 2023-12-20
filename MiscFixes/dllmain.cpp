@@ -43,8 +43,7 @@ CreateSFWidget sf_widg = nullptr;
 DWORD sfw = 0;
 
 
-typedef int(__stdcall *GrabA1)(int e1, int e2);
-GrabA1 g_a1 = nullptr;
+
 
 //the shells are stored in 000_data.sga
 //ui/textures/space_marines/hud/selection_panel/x_bg.dds - will have x_bg_{name}.dds for factions, ork uses w_bg.dds
@@ -134,11 +133,13 @@ DWORD SPVFT = 0;
 DWORD selectuielement = 0;
 
 
+const char* gnn = "/waaagh_meter_shell/meter_mc/gn";
 DWORD test_jmpback = 0;
 void __declspec(naked) TestMidDrawShell() {
     __asm {
         //lea ecx, [esi+0x48];
         mov ecx, dword ptr[test1];
+        //mov ecx, dword ptr[esi + 0x54];
         //mov ecx, dword ptr[esi + 0x48];
         mov eax, 0x1;
         //mov edx, dword ptr[ecx];
@@ -148,9 +149,7 @@ void __declspec(naked) TestMidDrawShell() {
         jmp [test_jmpback];
     }
 }
-
-const char* gnn = "/waaagh_meter_shell/meter_mc/gn";
-const char* sm1 = "/waaagh_meter_shell/meter_mc/sm";
+//const char* sm1 = "/waaagh_meter_shell/meter_mc/sm";
 void __declspec(naked) shellfunc() {
     __asm {
         mov esi, test1;
@@ -165,13 +164,22 @@ void __declspec(naked) shellfunc() {
     }
 }
 
+DWORD jmpback_changesm = 0;
+void __declspec(naked) MidChangeSM() {
+    __asm {
+        push gnn;
+        jmp [jmpback_changesm];
+     }
+}
+
+
 DWORD shellgen_jmpback = 0;
 void __declspec(naked) MidShellGenerate() {
     __asm {
         mov a1, ebp;
         mov esi, test1;
-        mov edx, sm1;
-        mov eax, a1;
+        mov edx, gnn;
+        mov eax, ebp;
         mov byte ptr[esp + 0x2A4], 0x5C;
         call sfw;
         push ebp;
@@ -182,7 +190,9 @@ void __declspec(naked) MidShellGenerate() {
         jmp[shellgen_jmpback];
     }
 }
-//try changing the way the new works??
+//maybe just change the image loaded everytime the player loads in?
+    //-use the space marine space to load the image we want?
+    //-maybe change the lookup name at top of function
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -202,20 +212,12 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         revwaaagh = (base + 0x285660);
         sf_widg = reinterpret_cast<CreateSFWidget>(base + 0x285050);
         sfw = (base + 0x285050);
-        g_a1 = reinterpret_cast<GrabA1>(base + 0x281B50);
         //testing
         //NopPatch(reinterpret_cast<BYTE*>(base + 0x3A9B63), 5);
         jmpback_midstats = (base + 0x64D64);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x64CB8), (DWORD)MidStatsPopGenerate, 7);
 
         //testing for the waaagh meter patch
-        //find buttons using change in waaagh with cheat engine
-        //B6D18A
-        //g_a1((int)a, (int)"ui\\movies\\hud\\selection_panel");
-        //*(DWORD*)a = (base + 0xD15490);
-        //CreateWidget((int)a, "/waaagh_meter_shell/meter_mc/sm", (int)a2);
-        
-        //NopPatch(reinterpret_cast<BYTE*>(base + 0x76D1BA), 7); //try changing the instance we get at this memory location, and see what happens, did nothing lol
         DrawUIElement = base + 0x6D39C0;
         jmpback_drawui = base + 0x76D1A5;
         jmpback_drawui_t = base + 0x76D1C1;
@@ -227,28 +229,21 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0E0), (DWORD)TestMidDrawShell, 7);
         NopPatch(reinterpret_cast<BYTE*>(base + 0x76D0BE), 4);
         NopPatch(reinterpret_cast<BYTE*>(base + 0x76D0C5), 4);
-        call_681B50 = reinterpret_cast<sub_681B50>(base + 0x281B50);
 
         //used
         //shellgen_jmpback = base + 0x73C5E8;
         //shellgen_jmpback = base + 0x73C1B9;
         shellgen_jmpback = base + 0x73C1C9;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C19F), (DWORD)MidShellGenerate, 42);
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C18A), (DWORD)MidShellGenerate, 58);
         //JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C1C9), (DWORD)MidShellGenerate, 16);
         addToDic = base + 0x282760;
         
+        jmpback_changesm = base + 0x76CF50;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), (DWORD)MidChangeSM, 5);
         test1 = new char[0x38C];
         for (size_t i = 0; i < 0x38C; i++) {
             test1[i] = 0;
         }
-        //test1 widget memory not correct, lacking memory address at very end, two ones in two bytes before that, and there should not be any uninit chars in mem block
-        /*if (test1) {
-            addToDic = base + 0x282760;
-            a1 = (DWORD*)base + 0xEBB6C0;
-            int t2 = CreateWidget((int)a1, "/waaagh_meter_shell/meter_mc/gn", (int)test1);
-            //callAddToDic((int)t2, (int)*a1);
-            
-        }*/
         util = GetModuleHandleA("Util.dll");
         if (util) {
             DicInstance = reinterpret_cast<DInstance>(GetProcAddress(util, MAKEINTRESOURCEA(533)));
