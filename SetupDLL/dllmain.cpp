@@ -21,9 +21,7 @@ bool checkClipboard(std::string comp) {
 typedef void(__thiscall *MainMenu)(void* ecx, int* param1);
 MainMenu org_menu = reinterpret_cast<MainMenu>(0x0047254f);
 
-PDETOUR_TRAMPOLINE trampoline = nullptr;
-MainMenu real_menu = nullptr;
-MainMenu real_detour = nullptr;
+
 HMODULE hmod;
 std::atomic_bool first = ATOMIC_VAR_INIT(true);
 std::ofstream file;
@@ -35,6 +33,17 @@ void __fastcall menudetour(void* ecx, int* param1) {
     file << "StartupDLL: Menu called\n";
     first = false;
    
+}
+
+DWORD menumidhookjmp = 0;
+void __declspec(naked) MenuMidHook() {
+    __asm {
+        push ebp;
+        mov ebp, esp;
+        and esp, 0x0FFFFFFF8;
+        mov first, 0x0;
+        jmp[menumidhookjmp];
+    }
 }
 
 std::string flipstring(std::string str) {
@@ -140,44 +149,32 @@ DWORD WINAPI MainThread(LPVOID param) {
             Sleep(100);
         }
     }
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
-    DetourDetach((void**)&org_menu, menudetour);
-    DetourTransactionCommit();
+    BYTE* src = (BYTE*)"\x55\x8B\xEC\x83\xE4\xF8";
+    MemPatch(reinterpret_cast<BYTE*>(base + 0x7254F), src, 6);
+    src = (BYTE*)"\x83\xC4\x0C\x68\x08\x57\x08\x01";
+    MemPatch(reinterpret_cast<BYTE*>(base + 0x1D36B), src, 8);
     file.close();
-    /*hmod = GetModuleHandleA("SetupDLL.dll");
-    if (hmod) {
-        FreeLibrary(hmod);
-    }*/
     return 0;
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
-    //DetourRestoreAfterWith();
-    //DetourIsHelperProcess();
+    
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH:
         file.open("mod_logs\\startup.log");
         base = (DWORD)GetModuleHandleA("DOW2.exe");
+        menumidhookjmp = base + 0x72555;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x7254F), (DWORD)MenuMidHook, 6);
         hmod = hModule;
 
         CreateThread(0, 0, MainThread, hModule, 0, 0);
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        //DetourAttach((void**)&st_org, importdetour);
-        DetourAttachEx((void**)&org_menu, menudetour, &trampoline, (void**)&real_menu, (void**)&real_detour);
-        DetourTransactionCommit();
+        
         jmpback_midcfgload = (base + 0x1D37D);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x1D36B), (DWORD)MidCfgLoad, 8);
-        //CreateThread(0, 0, MainThread, hModule, 0, 0);
     case DLL_PROCESS_DETACH:
-        /*error("detach", "got detached");
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourDetach((void**)&org_menu, menudetour);
-        DetourTransactionCommit();*/
+        
         break;
     }
     return TRUE;

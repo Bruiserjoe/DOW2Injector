@@ -12,6 +12,11 @@
 #include <gdiplus.h>
 #pragma comment (lib,"Gdiplus.lib")
 
+//fixes
+    //change setupdll communication method with exe
+    //custom player cfg not updating? (I think this is wrong lol)
+    //add launch options for exe
+
 //todo
 // -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
 //  -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
@@ -24,7 +29,7 @@
 // -shell patch
 // -fix requistion point upgrades fucking up healthbar
 // -fix sound lag
-//  -Fix soundbug, probably in shark.dll or fmod related
+//  -Fix soundbug, probably in shark.dll or fmod related; (SOUND: streaming buffer overflow: )
 //  -add lan back
 //  -improve performance, improve model drawing(main issue with performance)
 //  -Fix last stand map issues

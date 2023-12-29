@@ -75,7 +75,6 @@ bool Injector::startProcess(std::string args) {
     bool sk = false;
     while (true) {
         HWND wind = FindWindowA(NULL, "Dawn of War II");
-
         if (IsWindowVisible(wind)) {
             if (!sk) {
                 setProcess("DOW2.exe");

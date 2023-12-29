@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 #include <psapi.h>
-#include <detours.h>
+//#include <detours.h>
 #include <algorithm>
 #include <fstream>
 #include <thread>

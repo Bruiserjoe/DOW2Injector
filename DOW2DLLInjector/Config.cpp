@@ -67,17 +67,17 @@ std::string Injector::readConfig() {
         pos = str.find("dev:");
         con = readAfterColon(str, pos);
         if (con.compare("true") == 0) {
-            ret = ret + " -dev";
+            ret = ret + " -dev ";
         }
         pos = str.find("skip-movies:");
         con = readAfterColon(str, pos);
         if (con.compare("true") == 0) {
-            ret = ret + " -nomovies";
+            ret = ret + "-nomovies ";
         }
         pos = str.find("windowed:");
         con = readAfterColon(str, pos);
         if (con.compare("true") == 0) {
-            ret = ret + "-window";
+            ret = ret + "-window ";
         }
         pos = str.find("sleep-after-menu:");
         con = readAfterColon(str, pos);
