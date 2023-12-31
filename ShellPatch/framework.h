@@ -35,3 +35,20 @@ bool JmpPatch(BYTE* dst, DWORD target, size_t size) {
     VirtualProtect(dst, size, prot, &prot);
     return true;
 }
+
+class ShellMap {
+private:
+    //probably use hashmap to lookup the correct shell for each race_
+    std::string arr[100];
+    int hash(std::string race) {
+        int total = 0;
+        for (size_t i = 0; i < race.size(); i++) {
+            total += race[i];
+        }
+        return total % 100;
+    }
+public:
+    ShellMap() {
+        
+    }
+};

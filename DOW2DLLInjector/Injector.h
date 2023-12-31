@@ -14,27 +14,25 @@
 
 //fixes
     //change setupdll communication method with exe
+    //  -use windows sockets probably
     //custom player cfg not updating? (I think this is wrong lol)
     //add launch options for exe
 
 //todo
 // -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
-//  -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
-// -figure out where the menu screens are stored so we can add our own and edit the behavior
-// -look into dll hijacking, probably use xthread
+//      -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
 // -game finder for all mods, so easier to find match, similar to FAF(need money for this)
 // -figure out how to make lobby size "infinite"
 // -superheavy mode with no limits on popcap or heavies limit as a toggle
 // -look into suggestions
-// -shell patch
-// -fix requistion point upgrades fucking up healthbar
-// -fix sound lag
-//  -Fix soundbug, probably in shark.dll or fmod related; (SOUND: streaming buffer overflow: )
-//  -add lan back
-//  -improve performance, improve model drawing(main issue with performance)
-//  -Fix last stand map issues
-//  -Add more heros to last stand
-//  -reverse server code
+    // -shell patch
+    // -fix requistion point upgrades fucking up healthbar
+    // -Fix soundbug, probably in shark.dll or fmod related; (SOUND: streaming buffer overflow: )
+    // -add lan back
+    // -improve performance, improve model drawing(main issue with performance)
+    // -Fix last stand map issues
+    // -Add more heros to last stand
+    // -reverse server code
 
 class Window {
 private:

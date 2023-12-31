@@ -3,6 +3,24 @@
 
 DWORD base;
 HMODULE util;
+ShellMap sh_map;
+
+DWORD image_jmpback;
+const char* testipath = "selection_panel/x_bg_eld.dds";
+void __declspec(naked) EditImagePath() {
+    __asm {
+        //copying asm we copied over
+        mov dword ptr[esp + 0x28], eax;
+        push 0x1;
+        //actually what we want to do
+        mov edx, dword ptr[esi + 0x10];
+        mov eax, testipath;
+        mov dword ptr[edx + 0x10], eax;
+        mov eax, dword ptr [esp + 0x28];
+        jmp[image_jmpback];
+    }
+}
+
 
 typedef int(__fastcall* CreateSFWidget)(int e1, const char* a2, int a3);
 CreateSFWidget sf_widg = nullptr;
@@ -155,7 +173,7 @@ void __declspec(naked) MidShellGenerate() {
         jmp[shellgen_jmpback];
     }
 }
-
+//figure out where image data is actually loaded and change out the path for sm to the one we want
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -198,6 +216,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         for (size_t i = 0; i < 0x38C; i++) {
             test1[i] = 0;
         }
+        image_jmpback = base + 0x9E5F81;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x9E5F7B), (DWORD)EditImagePath, 5);
+
         util = GetModuleHandleA("Util.dll");
         if (util) {
             DicInstance = reinterpret_cast<DInstance>(GetProcAddress(util, MAKEINTRESOURCEA(533)));
