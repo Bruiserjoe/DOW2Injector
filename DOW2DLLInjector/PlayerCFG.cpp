@@ -37,10 +37,16 @@ bool checkClipboard(std::string comp) {
 }
 
 //send the cfg path to setupdll
-void Injector::communicatecfgpath() {
+void Injector::communicatecfgpath(SOCKET sock) {
 	//now block until we've got confirmation that setupdll has read it
-	const char* msg = cfg_path.c_str();
-	OpenClipboard(NULL);
+	std::string temp = cfg_path + "|";
+	const char* msg = temp.c_str();
+	send(sock, msg, temp.length(), 0);
+
+	char buf[100];
+	recv(sock, buf, 100, 0);
+
+	/*OpenClipboard(NULL);
 	HGLOBAL glob = GlobalAlloc(GMEM_FIXED, sizeof(char) * cfg_path.size() + 1);
 	char* buffer = (char*)GlobalLock(glob);
 	if (buffer != NULL) {
@@ -55,5 +61,5 @@ void Injector::communicatecfgpath() {
 		if (checkClipboard("Finish CFG")) {
 			break;
 		}
-	}
+	}*/
 }

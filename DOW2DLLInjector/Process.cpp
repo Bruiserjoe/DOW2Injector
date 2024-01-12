@@ -1,7 +1,6 @@
 #include "Injector.h"
 #include <algorithm>
 #include <mutex>
-
 void Injector::setProcess(std::string process) {
     //injecting the dlls
     pid = get_proc_id(process.c_str());
@@ -20,7 +19,15 @@ void Injector::setProcess(DWORD id) {
         return;
     }
 }
-
+std::string parseRecv(SOCKET sock) {
+    char buf[512];
+    recv(sock, buf, 512, 0);
+    std::string ret = "";
+    for (int i = 0; i < 512 && buf[i] != '|'; i++) {
+        ret.push_back(buf[i]);
+    }
+    return ret;
+}
 
 
 //looping through modules
@@ -134,11 +141,14 @@ void _windThread(std::string img_path) {
     }
 }
 
-
+//https://learn.microsoft.com/en-us/windows/win32/ipc/pipes
+//https://learn.microsoft.com/en-us/windows/win32/winsock/initializing-winsock
+//https://learn.microsoft.com/en-us/windows/win32/winsock/winsock-functions
 void Injector::start() {
     OpenClipboard(NULL);
     EmptyClipboard();
     CloseClipboard();
+
 
     TCHAR szExeFileName[MAX_PATH];
     GetModuleFileName(NULL, szExeFileName, MAX_PATH);
@@ -153,34 +163,70 @@ void Injector::start() {
     }
     findDLLS(mods_folder);
     startProcess(args);
-    communicatecfgpath();
+
+    //socket setup
+    int iResult;
+    WSADATA wsaData;
+    // Initialize Winsock
+    iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (iResult != 0) {
+        std::cout << "Winsock failed to setup " << iResult << "\n";
+        return;
+    }
+
+    SOCKET tcpsock = socket(AF_INET, SOCK_STREAM, 0);
+    if (tcpsock < 0) {
+        std::cout << "Failed to create socket!";
+        return;
+    }
+    sockaddr_in hint;
+    hint.sin_family = AF_INET;
+    hint.sin_port = htons(54000);
+    hint.sin_addr.S_un.S_addr = INADDR_ANY;
+    iResult = bind(tcpsock, (sockaddr*)&hint, sizeof(hint));
+    if (iResult == SOCKET_ERROR) {
+        std::cout << "Failed to bind socket " << iResult << "\n";
+        return;
+    }
+    iResult = listen(tcpsock, SOMAXCONN);
+    if (iResult == SOCKET_ERROR) {
+        std::cout << "Listen failed " << iResult << "\n";
+        return;
+    }
+    sockaddr_in client;
+    int clientsize = sizeof(client);
+    SOCKET client_sock = accept(tcpsock, (sockaddr*)&client, &clientsize);
+    if (client_sock < 0) {
+        std::cout << "failed to accept socket connection\n";
+        return;
+    }
+    char host[NI_MAXHOST];
+    char service[NI_MAXHOST];
+    ZeroMemory(host, NI_MAXHOST);
+    ZeroMemory(service, NI_MAXHOST);
+    if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0) {
+        std::cout << host << " connect on port " << service << std::endl;
+    }
+    else {
+        inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
+        std::cout << host << " connect on port " << ntohs(client.sin_port) << std::endl;
+
+    }
+    std::string hh = "hello|";
+    send(client_sock, hh.c_str(), hh.length(), 0);
+
+
+    communicatecfgpath(client_sock);
 
     bool er = false;
     while (!er) {
-        //reading clipboard to see if the menu has been loaded
-        if (OpenClipboard(NULL)) {
-            char* buffer = (char*)GetClipboardData(CF_TEXT);
-            if (buffer) {
-                std::string str(buffer);
-                if (str.compare("Menu setup") == 0) {
-                    er = true;
-                    std::cout << "Main menu loaded\n";
-                }
-            }
+        //reading the socket to see if the menu has been loaded
+        std::string rev = parseRecv(client_sock);
+        if (rev.compare("menu") == 0) {
+            std::cout << "Main menu loaded\n";
+            er = true;
         }
-        CloseClipboard();
     }
-    OpenClipboard(NULL);
-    EmptyClipboard();
-
-    const char* msg = "Injection Start";
-    HGLOBAL glob = GlobalAlloc(GMEM_FIXED, sizeof(char) * 16);
-    char* buffer = (char*)GlobalLock(glob);
-    strcpy_s(buffer, sizeof(char) * 16, msg);
-    GlobalUnlock(glob);
-
-    SetClipboardData(CF_TEXT, glob);
-    CloseClipboard();
     //order the dlls, this is very important 
     orderDLLS();
     Sleep(sleep_time); //just to be safe

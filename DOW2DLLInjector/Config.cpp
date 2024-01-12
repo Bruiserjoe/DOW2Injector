@@ -15,6 +15,21 @@ std::string readAfterColon(std::string data, size_t start) {
     }
     return ret1;
 }
+
+
+std::string readAfterColonInQuotes(std::string data, size_t start) {
+    size_t pos = start;
+    for (pos; pos < data.size() && data[pos] != ':'; pos++);
+    pos++;
+    for (pos; pos < data.size() && data[pos] != '\"'; pos++);
+    pos++;
+    std::string ret1 = "";
+    
+    for (pos; pos < data.size() && data[pos] != '\n' && data[pos] != '\"'; pos++) {
+        ret1.push_back(data[pos]);
+    }
+    return ret1;
+}
 std::string readAfterColonWithSpaces(std::string data, size_t start) {
     size_t pos = start;
     for (pos; pos < data.size() && data[pos] != ':'; pos++);
@@ -64,7 +79,7 @@ std::string Injector::readConfig() {
         con.clear();
         con = readAfterColon(str, pos);
         mods_folder = con;
-        pos = str.find("dev:");
+        /*pos = str.find("dev:");
         con = readAfterColon(str, pos);
         if (con.compare("true") == 0) {
             ret = ret + " -dev ";
@@ -78,7 +93,12 @@ std::string Injector::readConfig() {
         con = readAfterColon(str, pos);
         if (con.compare("true") == 0) {
             ret = ret + "-window ";
-        }
+        }*/
+        pos = str.find("launch-options:");
+        con.clear();
+        con = readAfterColonInQuotes(str, pos);
+        ret = ret + con;
+
         pos = str.find("sleep-after-menu:");
         con = readAfterColon(str, pos);
         sleep_time = std::stoi(con);
@@ -108,9 +128,10 @@ std::string Injector::readConfig() {
         file.open(exe_name + ".config");
         file << "module: none\n";
         file << "mod-folder: mods\n";
-        file << "dev: false\n";
-        file << "skip-movies: true\n";
-        file << "windowed: false\n";
+        file << "launch-options: \" -dev -nomovies\"";
+        //file << "dev: false\n";
+        //file << "skip-movies: true\n";
+        //file << "windowed: false\n";
         file << "sleep-after-menu: 500\n";
         file << "exe-path: local\n";
         file << "load-order:\n"; 

@@ -1,4 +1,9 @@
 #pragma once
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _WINSOCKAPI_ 
+//https://stackoverflow.com/questions/21399650/cannot-include-both-files-winsock2-windows-h
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment (lib,"Gdiplus.lib")
 #include <iostream>
 #include <Windows.h>
 #include <string>
@@ -10,13 +15,18 @@
 #include <TlHelp32.h>
 #include <Psapi.h>
 #include <gdiplus.h>
-#pragma comment (lib,"Gdiplus.lib")
+#include <WinSock2.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <iphlpapi.h>
+#include <ws2tcpip.h>
+
 
 //fixes
     //change setupdll communication method with exe
     //  -use windows sockets probably
+    //  -or pipes
     //custom player cfg not updating? (I think this is wrong lol)
-    //add launch options for exe
 
 //todo
 // -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
@@ -115,7 +125,7 @@ public:
     std::string readConfig();
     //playercfg related
     void createcfgpath(std::string path);
-    void communicatecfgpath();
+    void communicatecfgpath(SOCKET sock);
     //process related
     bool startProcess(std::string args);
     void setProcess(std::string process);

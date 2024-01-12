@@ -1,5 +1,20 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "framework.h"
+#pragma comment (lib, "ws2_32.lib")
+#include <winsock2.h>
+#include <WS2tcpip.h>
+#include <windows.h>
+
+
+std::string parseRecv(SOCKET sock) {
+    char buf[512];
+    recv(sock, buf, 512, 0);
+    std::string ret = "";
+    for (int i = 0; i < 512 && buf[i] != '|'; i++) {
+        ret.push_back(buf[i]);
+    }
+    return ret;
+}
 
 bool checkClipboard(std::string comp) {
     bool ret = false;
@@ -61,47 +76,27 @@ char* cfgp;
 std::string path;
 char* pathp;
 //reads the clipboard and sets the cfg path variables
-bool setcfg() {
-    if (OpenClipboard(NULL)) {
-        char* buffer = (char*)GetClipboardData(CF_TEXT);
-        if (buffer) {
-            std::string str(buffer);
-            std::string cfg;
-            int i = str.size() - 1;
-            for (; i >= 0 && str[i] != '/'; i--) {
-                cfg.push_back(str[i]);
-            }
-            cfg = flipstring(cfg);
-            cfgfile = cfg;
-            cfgp = (char*)cfgfile.c_str();
-            std::string p;
-            for (; i >= 0; i--) {
-                p.push_back(str[i]);
-            }
-            p = flipstring(p);
-            path = p;
-            pathp = (char*)path.c_str();
-            CloseClipboard();
-            {
-                OpenClipboard(NULL);
-                EmptyClipboard();
-
-                const char* msg = "Finish CFG";
-                HGLOBAL glob = GlobalAlloc(GMEM_FIXED, sizeof(char) * 11);
-                char* buffer = (char*)GlobalLock(glob);
-                if (buffer) {
-                    strcpy_s(buffer, sizeof(char) * 11, msg);
-                }
-                GlobalUnlock(glob);
-
-                SetClipboardData(CF_TEXT, glob);
-                CloseClipboard();
-            }
-            return true;
+bool setcfg(SOCKET sock) {
+    std::string t = parseRecv(sock);
+    if (t.compare("hello") != 0) {
+        std::string cfg;
+        int i = t.size() - 1;
+        for (; i >= 0 && t[i] != '/'; i--) {
+            cfg.push_back(t[i]);
         }
+        cfg = flipstring(cfg);
+        cfgfile = cfg;
+        cfgp = (char*)cfgfile.c_str();
+        std::string p;
+        for (; i >= 0; i--) {
+            p.push_back(t[i]);
+        }
+        p = flipstring(p);
+        path = p;
+        pathp = (char*)path.c_str();
+        send(sock, "cfg|", 4, 0);
+        return true;
     }
-    CloseClipboard();
-    Sleep(8);
     return false;
 }
 
@@ -120,33 +115,40 @@ void __declspec(naked) MidCfgLoad() {
     }
 }
 
-
+//https://www.youtube.com/watch?v=WDn-htpBlnU
 DWORD WINAPI MainThread(LPVOID param) {
     bool er = false;
+    // Initialize Winsock
+    WSADATA wsaData;
+    int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (iResult != 0) {
+        return -1;
+    }
+
+    SOCKET tcpsock = socket(AF_INET, SOCK_STREAM, 0);
+    if (tcpsock < 0) {
+        return -1;
+    }
+    sockaddr_in hint;
+    hint.sin_family = AF_INET;
+    hint.sin_port = htons(54000);
+    inet_pton(AF_INET, "127.0.0.1", &hint.sin_addr);
+    iResult = connect(tcpsock, (sockaddr*)&hint, sizeof(hint));
+    if (iResult == SOCKET_ERROR) {
+        closesocket(tcpsock);
+        WSACleanup();
+        return -1;
+    }
+    
+    
     //getting the clipboard
-    while (!setcfg());
+    while (!setcfg(tcpsock));
 
     while (!er) {
         if (!first) {
-            if (checkClipboard("Injection Start")) {
-                file << "StartupDLL: exiting clipboard thread\n";
-                er = true;
-                break;
-            }
-            OpenClipboard(NULL);
-            EmptyClipboard();
-
-            const char* msg = "Menu setup";
-            HGLOBAL glob = GlobalAlloc(GMEM_FIXED, sizeof(char) * 11);
-            char* buffer = (char*)GlobalLock(glob);
-            strcpy_s(buffer, sizeof(char) * 11, msg);
-            GlobalUnlock(glob);
-
-            SetClipboardData(CF_TEXT, glob);
-            CloseClipboard();
-            //try waiting for the injector to write something back that's probably what causes the catch
-            file << "StartupDLL: Startup clipboard set\n";
-            Sleep(100);
+            send(tcpsock, "menu|", 5, 0);
+            er = true;
+            file << "StartupDLL: Startup packet sent\n";
         }
     }
     BYTE* src = (BYTE*)"\x55\x8B\xEC\x83\xE4\xF8";
@@ -154,6 +156,8 @@ DWORD WINAPI MainThread(LPVOID param) {
     src = (BYTE*)"\x83\xC4\x0C\x68\x08\x57\x08\x01";
     MemPatch(reinterpret_cast<BYTE*>(base + 0x1D36B), src, 8);
     file.close();
+    closesocket(tcpsock);
+    WSACleanup();
     return 0;
 }
 
