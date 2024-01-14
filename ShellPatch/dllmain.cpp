@@ -122,7 +122,7 @@ void __declspec(naked) TestMidDrawShell() {
         //lea ecx, [esi+0x48];
         //mov ecx, dword ptr[test1];
         //mov ecx, dword ptr[esi + 0x54];
-        mov ecx, dword ptr[esi + 0x48];
+        //mov ecx, dword ptr[esi + 0x48];
         mov ecx, dword ptr[esi + 0x4C];
         mov eax, 0x1;
         //mov edx, dword ptr[ecx];
@@ -132,48 +132,44 @@ void __declspec(naked) TestMidDrawShell() {
         jmp[test_jmpback];
     }
 }
-//const char* sm1 = "/waaagh_meter_shell/meter_mc/sm";
-void __declspec(naked) shellfunc() {
-    __asm {
-        mov esi, test1;
-        mov edx, sm_offset;
-        mov eax, a1;
-        mov byte ptr[esp + 0x2A4], 0x6E;
-        call sfw;
-        push ebp;
-        mov esi, eax;
-        mov byte ptr[esp + 0x2A8], 0;
-        call addToDic;
-    }
-}
-
-DWORD jmpback_changesm = 0;
-void __declspec(naked) MidChangeSM() {
-    __asm {
-        push sm_offset;
-        jmp[jmpback_changesm];
-    }
-}
 
 
+
+
+
+DWORD newop = 0x0;
+const char* gn_name = "/waaagh_meter_shell/meter_mc/gn";
 DWORD shellgen_jmpback = 0;
 void __declspec(naked) MidShellGenerate() {
     __asm {
-        mov a1, ebp;
-        mov esi, test1;
-        mov edx, sm_offset;
+        call addToDic;
+        push 0x3C8;
+        call newop; //apparently new operator in the games memory
+        mov esi, eax;
+        add esp, 0x4;
+        mov dword ptr[esp + 0x14], esi;
+        mov byte ptr[esp + 0x2A4], 0x6E;
+        mov edx, gn_name;
         mov eax, ebp;
-        mov byte ptr[esp + 0x2A4], 0x5C;
-        call sfw;
+        call sfw; //calls createsfw widget
         push ebp;
         mov esi, eax;
-        mov byte ptr[esp + 0x2A8], 0;
+        mov byte ptr[esp + 0x2A8], 0x0;
         call addToDic;
-        //call shellfunc;
+        //end
         jmp[shellgen_jmpback];
     }
 }
+
+
+
 //figure out where image data is actually loaded and change out the path for sm to the one we want
+//  -00DE4B4F
+//  -try getting the actual export in the .gfx working
+//      -load the loaded gfx at the end of the ui loading\
+//      -see if you can add new ability buttons
+//  -get memory loaded in for /waaagh_meter_shell/meter_mc/gn
+        //-begining of generatewaaaghmetershell
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -182,6 +178,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
+        base = (DWORD)GetModuleHandleA("DOW2.exe");
         sub_AD3960 = base + 0x6D3960;
         sub_AD3990 = base + 0x6D3990;
         reveal_waaagh = reinterpret_cast<RevealWaaaghUI>(base + 0x285660);
@@ -202,14 +199,13 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         //NopPatch(reinterpret_cast<BYTE*>(base + 0x76D0C5), 4);
 
         //used
-        //shellgen_jmpback = base + 0x73C5E8;
-        //shellgen_jmpback = base + 0x73C1B9;
-        shellgen_jmpback = base + 0x73C18A;
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C14B), (DWORD)MidShellGenerate, 63);
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C1C9), (DWORD)MidShellGenerate, 16);
+        shellgen_jmpback = base + 0x73C5E8;
+        newop = base + 0x9AA9B6;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C5E3), (DWORD)MidShellGenerate, 5);
         addToDic = base + 0x282760;
 
-        jmpback_changesm = base + 0x76CF50;
+
+        
         sm_offset = base + 0xD15278;
         //JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C208), (DWORD)MidChangeSM, 5);
         test1 = new char[0x38C];
@@ -217,7 +213,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             test1[i] = 0;
         }
         image_jmpback = base + 0x9E5F81;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x9E5F7B), (DWORD)EditImagePath, 5);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x9E5F7B), (DWORD)EditImagePath, 5);
 
         util = GetModuleHandleA("Util.dll");
         if (util) {

@@ -23,9 +23,6 @@
 
 
 //fixes
-    //change setupdll communication method with exe
-    //  -use windows sockets probably
-    //  -or pipes
     //custom player cfg not updating? (I think this is wrong lol)
 
 //todo
