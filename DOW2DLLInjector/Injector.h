@@ -23,7 +23,8 @@
 
 
 //fixes
-    //custom player cfg not updating? (I think this is wrong lol)
+    //static folder for gamemode patch config
+        //-maybe have a config setting for special cases where the injector needs to tcp connect to them and send some string
 
 //todo
 // -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
@@ -116,10 +117,10 @@ public:
     ~Injector() {
         CloseHandle(processh);
     }
-    void start();
+    void start(std::string cfgpath);
 
     //config related
-    std::string readConfig();
+    std::string readConfig(std::string path);
     //playercfg related
     void createcfgpath(std::string path);
     void communicatecfgpath(SOCKET sock);

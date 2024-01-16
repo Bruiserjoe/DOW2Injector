@@ -50,13 +50,23 @@ std::string readLine(std::string data, size_t* start) {
     (*start)++;
     return ret;
 }
+std::string parseCommLine(std::string str) {
 
-std::string Injector::readConfig() {
+}
+
+std::string Injector::readConfig(std::string path) {
     std::cout << "Reading config \n";
     std::string ret = "";
-    if (file_exists(exe_name + ".config")) {
+    std::string cfgname;
+    if (path.compare("") != 0) {
+        cfgname = path;
+    }
+    else {
+        cfgname = exe_name + ".config";
+    }
+    if (file_exists(cfgname)) {
         std::ifstream file;
-        file.open(exe_name + ".config");
+        file.open(cfgname);
         std::stringstream stream;
         stream << file.rdbuf();
         std::string str = stream.str();
@@ -116,6 +126,12 @@ std::string Injector::readConfig() {
         pos = str.find("img:");
         con = readAfterColon(str, pos);
         image_path = con;
+        //reading communicatable dlls
+        pos = str.find("communicate:");
+        std::string line = readLine(str, &pos);
+        while ((line = readLine(str, &pos)).compare("end-comm")) {
+
+        }
         //reading load order
         pos = str.find("load-order:");
         std::string line = readLine(str, &pos);

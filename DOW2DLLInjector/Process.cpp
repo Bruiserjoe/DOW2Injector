@@ -144,7 +144,7 @@ void _windThread(std::string img_path) {
 //https://learn.microsoft.com/en-us/windows/win32/ipc/pipes
 //https://learn.microsoft.com/en-us/windows/win32/winsock/initializing-winsock
 //https://learn.microsoft.com/en-us/windows/win32/winsock/winsock-functions
-void Injector::start() {
+void Injector::start(std::string cfgpath) {
     OpenClipboard(NULL);
     EmptyClipboard();
     CloseClipboard();
@@ -156,7 +156,7 @@ void Injector::start() {
     std::string path = exe_name;
     exe_name = cullSlashExe(exe_name);
     createcfgpath(path);
-    std::string args = readConfig();
+    std::string args = readConfig(cfgpath);
     std::thread thr;
     if (window) {
         thr = std::thread(_windThread, this->image_path);
