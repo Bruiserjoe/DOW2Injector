@@ -78,6 +78,7 @@ class Injector {
 private:
     DWORD pid;
     HANDLE processh;
+    SOCKET tcpsock;
     std::string exe_name;
     std::string mods_folder;
     std::vector<std::string> dlls;

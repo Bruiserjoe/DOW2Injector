@@ -177,6 +177,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         
         jmpback_midcfgload = (base + 0x1D37D);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x1D36B), (DWORD)MidCfgLoad, 8);
+        break;
     case DLL_PROCESS_DETACH:
         
         break;

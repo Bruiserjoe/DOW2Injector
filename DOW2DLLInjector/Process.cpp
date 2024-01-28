@@ -174,7 +174,7 @@ void Injector::start(std::string cfgpath) {
         return;
     }
 
-    SOCKET tcpsock = socket(AF_INET, SOCK_STREAM, 0);
+    tcpsock = socket(AF_INET, SOCK_STREAM, 0);
     if (tcpsock < 0) {
         std::cout << "Failed to create socket!";
         return;

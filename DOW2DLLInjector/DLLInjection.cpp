@@ -40,7 +40,15 @@ bool Injector::injectDLL(std::string name) {
         error("Failed to attach thread", "Failed to attach thread to dow2");
         return false;
     }
-
+    std::string dll_n = "";
+    for (int i = name.size() - 1; i >= 0 && name[i] != '\\'; i--) {
+        dll_n.push_back(name[i]);
+    }
+    for (size_t i = 0, j = dll_n.size() - 1; i <= j; i++, j--) {
+        char tem = dll_n[i];
+        dll_n[i] = dll_n[j];
+        dll_n[j] = tem;
+    }
 
     WaitForSingleObject(hthread, INFINITE);
     VirtualFreeEx(processh, loc, (strlen(dll_path) + 1), MEM_RELEASE);

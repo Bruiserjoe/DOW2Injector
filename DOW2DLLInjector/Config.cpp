@@ -50,9 +50,6 @@ std::string readLine(std::string data, size_t* start) {
     (*start)++;
     return ret;
 }
-std::string parseCommLine(std::string str) {
-
-}
 
 std::string Injector::readConfig(std::string path) {
     std::cout << "Reading config \n";
@@ -89,21 +86,6 @@ std::string Injector::readConfig(std::string path) {
         con.clear();
         con = readAfterColon(str, pos);
         mods_folder = con;
-        /*pos = str.find("dev:");
-        con = readAfterColon(str, pos);
-        if (con.compare("true") == 0) {
-            ret = ret + " -dev ";
-        }
-        pos = str.find("skip-movies:");
-        con = readAfterColon(str, pos);
-        if (con.compare("true") == 0) {
-            ret = ret + "-nomovies ";
-        }
-        pos = str.find("windowed:");
-        con = readAfterColon(str, pos);
-        if (con.compare("true") == 0) {
-            ret = ret + "-window ";
-        }*/
         pos = str.find("launch-options:");
         con.clear();
         con = readAfterColonInQuotes(str, pos);
@@ -126,12 +108,6 @@ std::string Injector::readConfig(std::string path) {
         pos = str.find("img:");
         con = readAfterColon(str, pos);
         image_path = con;
-        //reading communicatable dlls
-        pos = str.find("communicate:");
-        std::string line = readLine(str, &pos);
-        while ((line = readLine(str, &pos)).compare("end-comm")) {
-
-        }
         //reading load order
         pos = str.find("load-order:");
         std::string line = readLine(str, &pos);
@@ -145,9 +121,6 @@ std::string Injector::readConfig(std::string path) {
         file << "module: none\n";
         file << "mod-folder: mods\n";
         file << "launch-options: \" -dev -nomovies\"";
-        //file << "dev: false\n";
-        //file << "skip-movies: true\n";
-        //file << "windowed: false\n";
         file << "sleep-after-menu: 500\n";
         file << "exe-path: local\n";
         file << "load-order:\n"; 
