@@ -109,32 +109,10 @@ void __declspec(naked) MidDrawUI() {
 typedef int(__stdcall* sub_681B50)(int a1, int a2);
 sub_681B50 call_681B50 = nullptr;
 //shit that actually matters lol
-DWORD* a1 = nullptr;
-DWORD SPVFT = 0;
-
-DWORD selectuielement = 0;
-
-DWORD sm_offset;
-const char* gnn = "/waaagh_meter_shell/meter_mc/gn";
-DWORD test_jmpback = 0;
-void __declspec(naked) TestMidDrawShell() {
-    __asm {
-        //lea ecx, [esi+0x48];
-        //mov ecx, dword ptr[test1];
-        //mov ecx, dword ptr[esi + 0x54];
-        //mov ecx, dword ptr[esi + 0x48];
-        mov ecx, dword ptr[esi + 0x4C];
-        mov eax, 0x1;
-        //mov edx, dword ptr[ecx];
-        //mov ecx, dword ptr [ecx];
-        //call revwaaagh;
-        call selectuielement;
-        jmp[test_jmpback];
-    }
-}
 
 
 
+//new patch
 
 
 DWORD newop = 0x0;
@@ -161,15 +139,71 @@ void __declspec(naked) MidShellGenerate() {
     }
 }
 
+DWORD instance_jmpback = 0;
+DWORD instance_location = 0;
+DWORD getkey_location = 0;
+int* mem_location = 0;
+DWORD uielement_location = 0;
+void __declspec(naked) MidInstance() {
+    __asm {
+        //instance
+        push gn_name;
+        lea eax, [esp + 0x14];
+        push eax;
+        call instance_location;
+        //getkey
+        mov ecx, eax;
+        call getkey_location;
+        //DrawUIElement
+        mov ecx, [eax];
+        lea ebp, mem_location;
+        push ebp;
+        push ecx;
+        call uielement_location;
+        //needed for operation
+        mov edi, dword ptr ds: 0xf89100;
+        jmp[instance_jmpback];
+    }
+}
 
+
+DWORD selectui_jmpback = 0;
+DWORD selectuielement_location = 0;
+void __declspec(naked) MidSelectUI() {
+    __asm {
+        call selectuielement_location;
+        xor al, al;
+        mov ecx, mem_location;
+        call selectuielement_location;
+        jmp[selectui_jmpback];
+    }
+}
+
+
+DWORD test_jmpback = 0;
+void __declspec(naked) TestMidDrawShell() {
+    __asm {
+        //lea ecx, [esi+0x48];
+        //mov ecx, dword ptr[test1];
+        //mov ecx, dword ptr[esi + 0x54];
+        mov ecx, dword ptr[esi + 0x48];
+        //mov ecx, dword ptr[esi + 0x4C];
+        //mov al, 0x1;
+        //mov edx, dword ptr[ecx];
+        //mov ecx, dword ptr [ecx];
+        //call revwaaagh;
+        //call selectuielement_location;
+        jmp[test_jmpback];
+    }
+}
 
 //figure out where image data is actually loaded and change out the path for sm to the one we want
 //  -00DE4B4F
-//  -try getting the actual export in the .gfx working
-//      -load the loaded gfx at the end of the ui loading\
-//      -see if you can add new ability buttons
 //  -get memory loaded in for /waaagh_meter_shell/meter_mc/gn
         //-begining of generatewaaaghmetershell
+// fix crash on non space marine factions
+    //figure out why that happens, stack corruption probably somewhere
+// render different shell again
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -189,36 +223,42 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         DrawUIElement = base + 0x6D39C0;
         jmpback_drawui = base + 0x76D1A5;
         jmpback_drawui_t = base + 0x76D1C1;
+
+
+
         //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D04D), (DWORD)MidDrawUI, 6);
-        test_jmpback = (base + 0x76D18F); //00B6D0C9
+        test_jmpback = (base + 0x76D18F); //00B6D18F
+        test_jmpback = (base + 0x76D188);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
 
         //used
-        selectuielement = (base + 0x285450);
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0E0), (DWORD)TestMidDrawShell, 7);
-        //NopPatch(reinterpret_cast<BYTE*>(base + 0x76D0BE), 4);
-        //NopPatch(reinterpret_cast<BYTE*>(base + 0x76D0C5), 4);
+       
+        
 
+        //new patch stuff
         //used
         shellgen_jmpback = base + 0x73C5E8;
         newop = base + 0x9AA9B6;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C5E3), (DWORD)MidShellGenerate, 5);
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C5E3), (DWORD)MidShellGenerate, 5); 
         addToDic = base + 0x282760;
+        //instance, getkey, and DrawUIElement
+        instance_jmpback = base + 0x76CF4B;
+        uielement_location = base + 0x6D39C0;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF45), (DWORD)MidInstance, 6);
+        //SelectUIElement
+        selectui_jmpback = base + 0x76D02D;
+        selectuielement_location = base + 0x285450;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D028), (DWORD)MidSelectUI, 5);
 
 
-        
-        sm_offset = base + 0xD15278;
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C208), (DWORD)MidChangeSM, 5);
-        test1 = new char[0x38C];
-        for (size_t i = 0; i < 0x38C; i++) {
-            test1[i] = 0;
-        }
-        image_jmpback = base + 0x9E5F81;
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x9E5F7B), (DWORD)EditImagePath, 5);
+
 
         util = GetModuleHandleA("Util.dll");
         if (util) {
             DicInstance = reinterpret_cast<DInstance>(GetProcAddress(util, MAKEINTRESOURCEA(533)));
+            instance_location = reinterpret_cast<DWORD>(DicInstance);
             DicGetKey = reinterpret_cast<DGetKey>(GetProcAddress(util, MAKEINTRESOURCEA(385)));
+            getkey_location = reinterpret_cast<DWORD>(DicGetKey);
         }
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:

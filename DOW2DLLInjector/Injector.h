@@ -22,19 +22,19 @@
 #include <ws2tcpip.h>
 
 
-//fixes
-    //static folder for gamemode patch config
-        //-maybe have a config setting for special cases where the injector needs to tcp connect to them and send some string
+//current todo
+    // -shell patch
+    // -fix requistion point upgrades fucking up healthbar
+    // -custom team layouts
 
-//todo
+
+//backlog
 // -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
 //      -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
 // -game finder for all mods, so easier to find match, similar to FAF(need money for this)
 // -figure out how to make lobby size "infinite"
 // -superheavy mode with no limits on popcap or heavies limit as a toggle
 // -look into suggestions
-    // -shell patch
-    // -fix requistion point upgrades fucking up healthbar
     // -Fix soundbug, probably in shark.dll or fmod related; (SOUND: streaming buffer overflow: )
     // -add lan back
     // -improve performance, improve model drawing(main issue with performance)
