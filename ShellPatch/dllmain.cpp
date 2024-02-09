@@ -68,7 +68,7 @@ void callAddToDic(int m1, int m2) {
 
 //all of the random callbacks in the function all call to the same function
 
-const char* shell;
+const char* shell_name;
 
 //functions called for setting up texture being drawn too?
 DWORD sub_AD3960 = 0;
@@ -97,9 +97,10 @@ DWORD jmpback_drawui;
 DWORD jmpback_drawui_t;
 void __declspec(naked) MidDrawUI() {
     __asm {
+        mov eax, dword ptr[eax + 0xc8];
         mov[v32], eax; //saving eax value for use later
         add eax, 0x70; //aligning eax to the race name
-        mov[shell], eax; //putting into shell var
+        mov[shell_name], eax; //putting into shell var
         mov[v1], esi; //putting esi into v1 for use later
 
 
@@ -186,7 +187,7 @@ void __declspec(naked) TestMidDrawShell() {
         //lea ecx, [esi+0x48];
         //mov ecx, dword ptr[test1];
         //mov ecx, dword ptr[esi + 0x54];
-        mov ecx, dword ptr[esi + 0x48];
+        mov ecx, dword ptr[esi + 0x40];
         //mov ecx, dword ptr[esi + 0x4C];
         //mov al, 0x1;
         //mov edx, dword ptr[ecx];
@@ -196,14 +197,44 @@ void __declspec(naked) TestMidDrawShell() {
         jmp[test_jmpback];
     }
 }
+std::string shell_string;
+const char* shell_char;
+void getShellName() {
+    __asm {
+        mov ecx, dword ptr ds : 0x1335720;
+        mov edx, [ecx + 0x8];
+        mov eax, [edx + 0x4];
+        mov eax, dword ptr[eax + 0xc8];
+        add eax, 0x70;
+        mov shell_name, eax;
+    }
+    shell_string = sh_map.lookupShell(shell_name);
+    shell_char = shell_string.c_str();
+}
+DWORD constant_shell = 0;
+DWORD change_jmpback = 0;
+void __declspec(naked) ChangeMidShell() {
+    __asm {
+        push shell_char;
+        jmp[change_jmpback];
+    }
+}
+
+
+
+typedef char(__thiscall *GenerateWaaaghMeterShell)(char* ecx);
+GenerateWaaaghMeterShell gen_waaagh_target = nullptr;
+
+char __fastcall GenerateWaaaghMeterShellDetour(char* ecx) {
+    getShellName();
+    char t = gen_waaagh_target(ecx);
+    return t;
+}
 
 //figure out where image data is actually loaded and change out the path for sm to the one we want
-//  -00DE4B4F
-//  -get memory loaded in for /waaagh_meter_shell/meter_mc/gn
-        //-begining of generatewaaaghmetershell
-// fix crash on non space marine factions
-    //figure out why that happens, stack corruption probably somewhere
-// render different shell again
+//  -fix crash on orks
+//  -dynamic loading of however many shells you got listed in config file
+//  -test with more than one new shell
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -213,6 +244,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     {
     case DLL_PROCESS_ATTACH:
         base = (DWORD)GetModuleHandleA("DOW2.exe");
+        gen_waaagh_target = reinterpret_cast<GenerateWaaaghMeterShell>(base + 0x76CF40);
         sub_AD3960 = base + 0x6D3960;
         sub_AD3990 = base + 0x6D3990;
         reveal_waaagh = reinterpret_cast<RevealWaaaghUI>(base + 0x285660);
@@ -221,12 +253,11 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         sfw = (base + 0x285050);
         //testing for the waaagh meter patch
         DrawUIElement = base + 0x6D39C0;
-        jmpback_drawui = base + 0x76D1A5;
-        jmpback_drawui_t = base + 0x76D1C1;
+        jmpback_drawui_t = base + 0x76D047;
 
 
 
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D04D), (DWORD)MidDrawUI, 6);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D041), (DWORD)MidDrawUI, 6);
         test_jmpback = (base + 0x76D18F); //00B6D18F
         test_jmpback = (base + 0x76D188);
         //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
@@ -242,15 +273,19 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C5E3), (DWORD)MidShellGenerate, 5); 
         addToDic = base + 0x282760;
         //instance, getkey, and DrawUIElement
-        instance_jmpback = base + 0x76CF4B;
+        /*instance_jmpback = base + 0x76CF4B;
         uielement_location = base + 0x6D39C0;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF45), (DWORD)MidInstance, 6);
         //SelectUIElement
         selectui_jmpback = base + 0x76D02D;
         selectuielement_location = base + 0x285450;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D028), (DWORD)MidSelectUI, 5);
-
-
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D028), (DWORD)MidSelectUI, 5);*/
+        //new version
+        change_jmpback = base + 0x76CF50;
+        constant_shell = base + 0xF35720;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), (DWORD)ChangeMidShell, 5);
+        test_jmpback = (base + 0x76D188);
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
 
 
         util = GetModuleHandleA("Util.dll");
@@ -260,6 +295,11 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             DicGetKey = reinterpret_cast<DGetKey>(GetProcAddress(util, MAKEINTRESOURCEA(385)));
             getkey_location = reinterpret_cast<DWORD>(DicGetKey);
         }
+        DetourTransactionBegin();
+        DetourUpdateThread(GetCurrentThread());
+        DetourAttach((void**)&gen_waaagh_target, GenerateWaaaghMeterShellDetour);
+        DetourTransactionCommit();
+        break;
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
     case DLL_PROCESS_DETACH:

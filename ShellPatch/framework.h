@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
 // Windows Header Files
 #include <windows.h>
+#include <detours.h>
 #include <string>
 #include <vector>
 #include <fstream>
@@ -38,17 +39,27 @@ bool JmpPatch(BYTE* dst, DWORD target, size_t size) {
 
 class ShellMap {
 private:
+    struct Memb {
+        std::string race_name;
+        std::string shell_name;
+    };
+
     //probably use hashmap to lookup the correct shell for each race_
-    std::string arr[100];
-    int hash(std::string race) {
-        int total = 0;
-        for (size_t i = 0; i < race.size(); i++) {
-            total += race[i];
-        }
-        return total % 100;
-    }
+    std::vector<Memb> races;
 public:
     ShellMap() {
-        
+        races.push_back({"race_marine", "/waaagh_meter_shell/meter_mc/gn"});
+        races.push_back({ "race_imperial_guard", "/waaagh_meter_shell/meter_mc/ig" });
+        races.push_back({ "race_eldar", "/waaagh_meter_shell/meter_mc/sm" });
+        races.push_back({ "race_chaos", "/waaagh_meter_shell/meter_mc/csm" });
+        races.push_back({ "race_tyranid", "/waaagh_meter_shell/meter_mc/tyr" });
+    }
+    std::string lookupShell(std::string race_name) {
+        for (auto& i : races) {
+            if (i.race_name.compare(race_name) == 0) {
+                return i.shell_name;
+            }
+        }
+        return "";
     }
 };

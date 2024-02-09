@@ -23,6 +23,8 @@
 
 
 //current todo
+    //make crashes more verbose
+    //close injector if failed to launch or inject after set time
     // -shell patch
     // -fix requistion point upgrades fucking up healthbar
     // -custom team layouts
