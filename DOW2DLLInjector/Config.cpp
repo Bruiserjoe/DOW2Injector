@@ -73,9 +73,11 @@ std::string Injector::readConfig(std::string path) {
         con = readAfterColonWithSpaces(str, pos);
         if (con.compare("local") != 0) {
             ret = con;
+            local_folder = false;
         }
         else {
             ret = "DOW2.exe";
+            local_folder = true;
         }
         pos = str.find("module:");
         con = readAfterColon(str, pos);

@@ -23,8 +23,6 @@
 
 
 //current todo
-    //make crashes more verbose
-    //close injector if failed to launch or inject after set time
     // -shell patch
     // -fix requistion point upgrades fucking up healthbar
     // -custom team layouts
@@ -89,6 +87,7 @@ private:
     std::string image_path;
     std::string cfg_path;
     bool window = true;
+    bool local_folder = false;
     DWORD get_proc_id(const char* name) {
         DWORD p_id = 0;
         PROCESSENTRY32 pe32;
@@ -114,7 +113,7 @@ private:
     }
     void error(const char* err_title, const char* err_message) {
         MessageBoxA(0, err_message, err_title, 0);
-        exit(-1);
+        //exit(-1);
     }
 public:
     ~Injector() {
@@ -133,7 +132,7 @@ public:
     void setProcess(DWORD id);
     //dll related
     bool injectDLL(std::string name);
-    void findDLLS(std::string folder);
+    bool findDLLS(std::string folder);
     void orderDLLS();
     bool freeDLL(std::string name);
 };

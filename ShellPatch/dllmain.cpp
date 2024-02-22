@@ -63,16 +63,55 @@ DWORD DrawUIElement = 0;
 
 
 
-//new patch
-
-
+//shell generation hooks
+DWORD select_a1 = 0;
 DWORD newop = 0x0;
+std::vector<std::string> shells = { "/waaagh_meter_shell/meter_mc/gn" };
+extern "C" void loadNewShells() {
+    //int count = 0x6E;
+    for (auto& i : shells) {
+        const char* t = i.c_str();
+        __asm {
+            mov edx, ebp;
+            mov eax, select_a1;
+            push 0x3C8;
+            call newop; //apparently new operator in the games memory
+            //jz to xor
+            //jz short locationxor; guess we ain't being safe here 8v8
+            //sfw section
+            add byte ptr[esp + 0x2A4], 0x1;
+            mov esi, eax;
+            mov edx, t;
+            mov eax, select_a1;
+            call sfw;
+            //dic section
+            push select_a1;
+            mov esi, eax;
+            mov byte ptr[esp + 0x2a8], 0x0;
+            call addToDic;
+        }
+    }
+}
+
+typedef DWORD* (__stdcall* GenerateSelectionPanel)(DWORD* a1);
+GenerateSelectionPanel gen_selection_target = nullptr;
+
+DWORD* __stdcall GenerateSelectionPanelDetour(DWORD* a1) {
+
+    DWORD* t = gen_selection_target(a1);
+    //loadNewShells({ "/waaagh_meter_shell/meter_mc/gn" }, a1);
+    return t;
+}
+
+
+
 const char* gn_name = "/waaagh_meter_shell/meter_mc/gn";
 DWORD shellgen_jmpback = 0;
 void __declspec(naked) MidShellGenerate() {
     __asm {
         call addToDic;
-        push 0x3C8;
+        mov select_a1, ebp;
+        /*push 0x3C8;
         call newop; //apparently new operator in the games memory
         mov esi, eax;
         add esp, 0x4;
@@ -84,55 +123,17 @@ void __declspec(naked) MidShellGenerate() {
         push ebp;
         mov esi, eax;
         mov byte ptr[esp + 0x2A8], 0x0;
-        call addToDic;
+        call addToDic;*/
+        call loadNewShells;
         //end
         jmp[shellgen_jmpback];
     }
 }
 
 
-void loadNewShells(std::vector<std::string> shells, DWORD* a1) {
-    int count = 0x6D;
-    for (auto& i : shells) {
-        char* c = nullptr;
-        __asm {
-            push 0x3C8;
-            call newop; //apparently new operator in the games memory
-            mov c, eax;
-        }
-        int r = 0;
-        if (c) {
-            const char* t = i.c_str();
-            __asm {
-                mov esi, c;
-                mov edx, t;
-                mov eax, a1;
-                call sfw;
-                mov r, eax;
-            }
-        } else {
-            r = 0;
-        }
-        __asm {
-            push a1;
-            mov esi, r;
-            call addToDic;
-        }
-        count++;
-    }
-}
-
-typedef DWORD* (__stdcall *GenerateSelectionPanel)(DWORD* a1);
-GenerateSelectionPanel gen_selection_target = nullptr;
-
-DWORD* __stdcall GenerateSelectionPanelDetour(DWORD* a1) {
-
-    DWORD* t = gen_selection_target(a1);
-    loadNewShells({ "/waaagh_meter_shell/meter_mc/gn" }, a1);
-    return t;
-}
 
 
+//drawing hooks
 DWORD test_jmpback = 0;
 void __declspec(naked) TestMidDrawShell() {
     __asm {
@@ -196,6 +197,7 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx) {
 
 //figure out where image data is actually loaded and change out the path for sm to the one we want
 //  -dynamic loading of however many shells you got listed in config file, use detours and just call a function to load them all after calling original
+//          //try doing a mid function hook instead of using detours
 //  -test with more than one new shell
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -228,7 +230,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         //used
         shellgen_jmpback = base + 0x73C5E8;
         newop = base + 0x9AA9B6;
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C5E3), (DWORD)MidShellGenerate, 5); 
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C5E3), (DWORD)MidShellGenerate, 5); 
         addToDic = base + 0x282760;
         //new version
         change_jmpback = base + 0x76CF50;
@@ -246,7 +248,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
         DetourAttach((void**)&gen_waaagh_target, GenerateWaaaghMeterShellDetour);
-        DetourAttach((void**)&gen_selection_target, GenerateSelectionPanelDetour);
+        //DetourAttach((void**)&gen_selection_target, GenerateSelectionPanelDetour);
         DetourTransactionCommit();
         break;
     case DLL_THREAD_ATTACH:

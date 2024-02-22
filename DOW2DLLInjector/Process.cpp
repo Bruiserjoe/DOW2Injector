@@ -74,7 +74,14 @@ bool Injector::startProcess(std::string args) {
     ZeroMemory(&pi, sizeof(pi));
     LPSTR args2 = (char*)args.c_str();
     if (!CreateProcessA(NULL, args2, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-        error("Failed to start", "Failed to start dow2");
+        std::string error_msg = "Failed to start DOW2, ";
+        if (local_folder) {
+            error_msg = error_msg + "check if the injector is in the right folder!";
+        }
+        else {
+            error_msg = "your DOW2.exe path isn't correct!";
+        }
+        error("Failed to start", error_msg.c_str());
         return false;
     }
     std::cout << "Waiting for Dawn of War to load\n";
@@ -127,10 +134,19 @@ std::mutex mtx;
 bool run = true;
 void _windThread(std::string img_path) {
     Window wind("DOW2 Injector", 600, 300, img_path);
+    auto start = std::chrono::high_resolution_clock::now();
     while (true) {
         mtx.lock();
+        auto t = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<float> dur = t - start;
+        std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(dur);
         if (!wind.processMessages()) {
             run = false;
+        }
+        else if (ms.count() >= 60000) {
+            run = false;
+            MessageBoxA(0, "Timeout Error", "Loading took too long, exiting injector", 0);
+            exit(-1);
         }
         if (!run) {
             mtx.unlock();
@@ -161,8 +177,15 @@ void Injector::start(std::string cfgpath) {
     if (window) {
         thr = std::thread(_windThread, this->image_path);
     }
-    findDLLS(mods_folder);
-    startProcess(args);
+    if (!findDLLS(mods_folder) || !startProcess(args)) {
+        mtx.lock();
+        run = false;
+        mtx.unlock();
+        if (window) {
+            thr.join();
+        }
+        return;
+    }
 
     //socket setup
     int iResult;
@@ -210,8 +233,8 @@ void Injector::start(std::string cfgpath) {
     else {
         inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
         std::cout << host << " connect on port " << ntohs(client.sin_port) << std::endl;
-
     }
+
     std::string hh = "hello|";
     send(client_sock, hh.c_str(), hh.length(), 0);
 
@@ -227,13 +250,15 @@ void Injector::start(std::string cfgpath) {
             er = true;
         }
     }
-    //order the dlls, this is very important 
+    //order the dlls, this is very important(not really) 
     orderDLLS();
-    Sleep(sleep_time); //just to be safe
+    Sleep(sleep_time); //just to be safe, some stuff still loading on first menu call
     freeDLL("SetupDLL.dll");
     //injecting mods folder dlls
     for (auto& i : dlls) {
-        injectDLL(mods_folder + "\\" + i);
+        if (!injectDLL(mods_folder + "\\" + i)) {
+            break;
+        }
     }
     mtx.lock();
     run = false;

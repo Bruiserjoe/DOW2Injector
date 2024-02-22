@@ -58,13 +58,13 @@ bool Injector::injectDLL(std::string name) {
 }
 
 
-void Injector::findDLLS(std::string folder) {
+bool Injector::findDLLS(std::string folder) {
     WIN32_FIND_DATA FileData;
     std::string files = folder + "\\*";
     HANDLE hFind = FindFirstFile(files.c_str(), &FileData);
     if (hFind == INVALID_HANDLE_VALUE) {
         error("Folder is invalid", "Invalid folder passed");
-        return;
+        return false;
     }
     std::cout << "Reading mods folder\n";
     do
@@ -80,6 +80,7 @@ void Injector::findDLLS(std::string folder) {
     } while (FindNextFile(hFind, &FileData) != 0);
     FindClose(hFind);
     std::cout << "Mods folder read\n";
+    return true;
 }
 
 void Injector::orderDLLS() {
