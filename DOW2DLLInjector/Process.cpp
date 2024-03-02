@@ -95,7 +95,7 @@ bool Injector::startProcess(std::string args) {
                 SetPriorityClass(processh, HIGH_PRIORITY_CLASS);
             }
             if (CheckModules(processh)) {
-                injectDLL("SetupDLL.dll"); //inject this dll and it will tell us when the main menu is loaded
+                injectDLL(setupdll_name); //inject this dll and it will tell us when the main menu is loaded
                 break;
             }
         }
@@ -161,16 +161,13 @@ void _windThread(std::string img_path) {
 //https://learn.microsoft.com/en-us/windows/win32/winsock/initializing-winsock
 //https://learn.microsoft.com/en-us/windows/win32/winsock/winsock-functions
 void Injector::start(std::string cfgpath) {
-    OpenClipboard(NULL);
-    EmptyClipboard();
-    CloseClipboard();
-
-
     TCHAR szExeFileName[MAX_PATH];
     GetModuleFileName(NULL, szExeFileName, MAX_PATH);
     exe_name = std::string(szExeFileName);
     std::string path = exe_name;
     exe_name = cullSlashExe(exe_name);
+    setupdll_name = exe_name + "_setup.dll";
+
     createcfgpath(path);
     std::string args = readConfig(cfgpath);
     std::thread thr;
@@ -253,7 +250,7 @@ void Injector::start(std::string cfgpath) {
     //order the dlls, this is very important(not really) 
     orderDLLS();
     Sleep(sleep_time); //just to be safe, some stuff still loading on first menu call
-    freeDLL("SetupDLL.dll");
+    freeDLL(setupdll_name);
     //injecting mods folder dlls
     for (auto& i : dlls) {
         if (!injectDLL(mods_folder + "\\" + i)) {

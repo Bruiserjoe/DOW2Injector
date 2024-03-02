@@ -60,78 +60,157 @@ DGetKey DicGetKey = nullptr;
 DWORD DrawUIElement = 0;
 
 //shit that actually matters lol
-
-
-
-//shell generation hooks
 DWORD select_a1 = 0;
 DWORD newop = 0x0;
 std::vector<std::string> shells = { "/waaagh_meter_shell/meter_mc/gn" };
-extern "C" void loadNewShells() {
-    //int count = 0x6E;
-    for (auto& i : shells) {
-        const char* t = i.c_str();
-        __asm {
-            mov edx, ebp;
-            mov eax, select_a1;
-            push 0x3C8;
-            call newop; //apparently new operator in the games memory
-            //jz to xor
-            //jz short locationxor; guess we ain't being safe here 8v8
-            //sfw section
-            add byte ptr[esp + 0x2A4], 0x1;
-            mov esi, eax;
-            mov edx, t;
-            mov eax, select_a1;
-            call sfw;
-            //dic section
-            push select_a1;
-            mov esi, eax;
-            mov byte ptr[esp + 0x2a8], 0x0;
-            call addToDic;
-        }
-    }
-}
+const char* cur_name = "/waaagh_meter_shell/meter_mc/gn";
 
 typedef DWORD* (__stdcall* GenerateSelectionPanel)(DWORD* a1);
 GenerateSelectionPanel gen_selection_target = nullptr;
 
 DWORD* __stdcall GenerateSelectionPanelDetour(DWORD* a1) {
-
+    select_a1 = (DWORD)a1;
     DWORD* t = gen_selection_target(a1);
+    for (auto& i : shells) {
+        cur_name = i.c_str();
+        char* temp_mem = new char[0x3C8];
+        __asm {
+            mov esi, temp_mem;
+            //add esp, 0x4;
+            //mov dword ptr[esp + 0x14], esi;
+            //mov byte ptr[esp + 0x2A4], 0x6E;
+            mov edx, cur_name;
+            mov eax, t;
+            call sfw; //calls createsfw widget
+            push t;
+            mov esi, eax;
+            //mov byte ptr[esp + 0x2A8], 0x0;
+            call addToDic;
+        }
+    }
     //loadNewShells({ "/waaagh_meter_shell/meter_mc/gn" }, a1);
     return t;
 }
 
 
+//new is causing esp error
+//shell generation hooks
+int shell_index = 0;
+int max = 0;
+char* temp_mem = nullptr;
+extern "C" void loadNewShells() {
+    //int count = 0x6E;
+    //for (auto& i : shells) {
+    cur_name = shells[shell_index].c_str();
+    //char* temp_mem = new char[0x3C8];
+    __asm {
+        //push 0x3C8;
+        //call newop;
+        mov esi, temp_mem;
+            
+        mov edx, cur_name;
+        mov eax, select_a1;
+        call sfw; //calls createsfw widget
+        push select_a1;
+        mov esi, eax;
+            
+        call addToDic;
+    }
+    //}
+}
+
+
+//hijack sm loading
 
 const char* gn_name = "/waaagh_meter_shell/meter_mc/gn";
 DWORD shellgen_jmpback = 0;
 void __declspec(naked) MidShellGenerate() {
+    temp_mem = new char[0x3C8];
     __asm {
         call addToDic;
         mov select_a1, ebp;
         /*push 0x3C8;
-        call newop; //apparently new operator in the games memory
+        call newop; //apparently new operator in the games memory   
         mov esi, eax;
         add esp, 0x4;
-        mov dword ptr[esp + 0x14], esi;
-        mov byte ptr[esp + 0x2A4], 0x6E;
+        //mov dword ptr[esp + 0x14], esi;
+        //mov byte ptr[esp + 0x2A4], 0x6E;
         mov edx, gn_name;
         mov eax, ebp;
         call sfw; //calls createsfw widget
         push ebp;
         mov esi, eax;
-        mov byte ptr[esp + 0x2A8], 0x0;
+        //mov byte ptr[esp + 0x2A8], 0x0;
         call addToDic;*/
-        call loadNewShells;
-        //end
+
+        /*mov edx, 0;
+        mov ebx, 0;
+        cmp edx, ebx;
+        jnz short 0x*/
+        //push 0x3C8;
+        //call newop;
+        //mov temp_mem, eax;
+        mov esi, temp_mem;
+
+        mov edx, gn_name;
+        mov eax, ebp;
+        call sfw; //calls createsfw widget
+        push ebp;
+        mov esi, eax;
+
+        call addToDic;*/
         jmp[shellgen_jmpback];
     }
+    /*for (shell_index = 0; shell_index < max; shell_index++) {
+        //cur_name = shells[shell_index].c_str();
+        //temp_mem = new char[0x3C8];
+        __asm {
+            push 0x3C8;
+            call newop;
+            //mov temp_mem, eax;
+            mov esi, eax;
+
+            mov edx, cur_name;
+            mov eax, ebp;
+            call sfw; //calls createsfw widget
+            push ebp;
+            mov esi, eax;
+
+            call addToDic;
+            //call loadNewShells;
+        }
+    }
+    __asm {
+        //end
+        jmp[shellgen_jmpback];
+    }*/
+
 }
 
+std::string shell_string;
+const char* shell_char;
+void getShellName() {
+    __asm {
+        mov ecx, dword ptr ds : 0x1335720;
+        mov edx, [ecx + 0x8];
+        mov eax, [edx + 0x4];
+        mov eax, dword ptr[eax + 0xc8];
+        add eax, 0x70;
+        mov shell_name, eax;
+    }
+    shell_string = sh_map.lookupShell(shell_name);
+    shell_char = shell_string.c_str();
+}
 
-
+DWORD sm_jmpback = 0;
+void __declspec(naked) MidSMLoadHijack() {
+    getShellName();
+    __asm {
+        mov edx, shell_char;
+        mov eax, ebp;
+        jmp[sm_jmpback];
+    }
+}
 
 //drawing hooks
 DWORD test_jmpback = 0;
@@ -150,20 +229,8 @@ void __declspec(naked) TestMidDrawShell() {
         jmp[test_jmpback];
     }
 }
-std::string shell_string;
-const char* shell_char;
-void getShellName() {
-    __asm {
-        mov ecx, dword ptr ds : 0x1335720;
-        mov edx, [ecx + 0x8];
-        mov eax, [edx + 0x4];
-        mov eax, dword ptr[eax + 0xc8];
-        add eax, 0x70;
-        mov shell_name, eax;
-    }
-    shell_string = sh_map.lookupShell(shell_name);
-    shell_char = shell_string.c_str();
-}
+
+
 DWORD constant_shell = 0;
 DWORD change_jmpback = 0;
 void __declspec(naked) ChangeMidShell() {
@@ -196,9 +263,8 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx) {
 }
 
 //figure out where image data is actually loaded and change out the path for sm to the one we want
-//  -dynamic loading of however many shells you got listed in config file, use detours and just call a function to load them all after calling original
-//          //try doing a mid function hook instead of using detours
-//  -test with more than one new shell
+//  -now just hijacking sm shell loading, works
+//  -figure out why there are two shells drawing now instead of the one
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -223,15 +289,17 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 
         //used
-       
         
+        max = (int)shells.size();
 
         //new patch stuff
         //used
         shellgen_jmpback = base + 0x73C5E8;
         newop = base + 0x9AA9B6;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C5E3), (DWORD)MidShellGenerate, 5); 
         addToDic = base + 0x282760;
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C5E3), (DWORD)MidShellGenerate, 5); 
+        sm_jmpback = base + 0x73C1B0;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C1A9), (DWORD)MidSMLoadHijack, 5);
         //new version
         change_jmpback = base + 0x76CF50;
         constant_shell = base + 0xF35720;

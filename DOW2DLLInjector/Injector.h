@@ -80,6 +80,7 @@ private:
     HANDLE processh;
     SOCKET tcpsock;
     std::string exe_name;
+    std::string setupdll_name;
     std::string mods_folder;
     std::vector<std::string> dlls;
     std::vector<std::string> load_order;
