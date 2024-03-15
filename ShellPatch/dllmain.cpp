@@ -61,131 +61,18 @@ DWORD DrawUIElement = 0;
 
 //shit that actually matters lol
 DWORD select_a1 = 0;
-DWORD newop = 0x0;
 std::vector<std::string> shells = { "/waaagh_meter_shell/meter_mc/gn" };
 const char* cur_name = "/waaagh_meter_shell/meter_mc/gn";
 
-typedef DWORD* (__stdcall* GenerateSelectionPanel)(DWORD* a1);
-GenerateSelectionPanel gen_selection_target = nullptr;
-
-DWORD* __stdcall GenerateSelectionPanelDetour(DWORD* a1) {
-    select_a1 = (DWORD)a1;
-    DWORD* t = gen_selection_target(a1);
-    for (auto& i : shells) {
-        cur_name = i.c_str();
-        char* temp_mem = new char[0x3C8];
-        __asm {
-            mov esi, temp_mem;
-            //add esp, 0x4;
-            //mov dword ptr[esp + 0x14], esi;
-            //mov byte ptr[esp + 0x2A4], 0x6E;
-            mov edx, cur_name;
-            mov eax, t;
-            call sfw; //calls createsfw widget
-            push t;
-            mov esi, eax;
-            //mov byte ptr[esp + 0x2A8], 0x0;
-            call addToDic;
-        }
-    }
-    //loadNewShells({ "/waaagh_meter_shell/meter_mc/gn" }, a1);
-    return t;
-}
 
 
-//new is causing esp error
+
 //shell generation hooks
-int shell_index = 0;
-int max = 0;
-char* temp_mem = nullptr;
-extern "C" void loadNewShells() {
-    //int count = 0x6E;
-    //for (auto& i : shells) {
-    cur_name = shells[shell_index].c_str();
-    //char* temp_mem = new char[0x3C8];
-    __asm {
-        //push 0x3C8;
-        //call newop;
-        mov esi, temp_mem;
-            
-        mov edx, cur_name;
-        mov eax, select_a1;
-        call sfw; //calls createsfw widget
-        push select_a1;
-        mov esi, eax;
-            
-        call addToDic;
-    }
-    //}
-}
 
 
-//hijack sm loading
+
 
 const char* gn_name = "/waaagh_meter_shell/meter_mc/gn";
-DWORD shellgen_jmpback = 0;
-void __declspec(naked) MidShellGenerate() {
-    temp_mem = new char[0x3C8];
-    __asm {
-        call addToDic;
-        mov select_a1, ebp;
-        /*push 0x3C8;
-        call newop; //apparently new operator in the games memory   
-        mov esi, eax;
-        add esp, 0x4;
-        //mov dword ptr[esp + 0x14], esi;
-        //mov byte ptr[esp + 0x2A4], 0x6E;
-        mov edx, gn_name;
-        mov eax, ebp;
-        call sfw; //calls createsfw widget
-        push ebp;
-        mov esi, eax;
-        //mov byte ptr[esp + 0x2A8], 0x0;
-        call addToDic;*/
-
-        /*mov edx, 0;
-        mov ebx, 0;
-        cmp edx, ebx;
-        jnz short 0x*/
-        //push 0x3C8;
-        //call newop;
-        //mov temp_mem, eax;
-        mov esi, temp_mem;
-
-        mov edx, gn_name;
-        mov eax, ebp;
-        call sfw; //calls createsfw widget
-        push ebp;
-        mov esi, eax;
-
-        call addToDic;*/
-        jmp[shellgen_jmpback];
-    }
-    /*for (shell_index = 0; shell_index < max; shell_index++) {
-        //cur_name = shells[shell_index].c_str();
-        //temp_mem = new char[0x3C8];
-        __asm {
-            push 0x3C8;
-            call newop;
-            //mov temp_mem, eax;
-            mov esi, eax;
-
-            mov edx, cur_name;
-            mov eax, ebp;
-            call sfw; //calls createsfw widget
-            push ebp;
-            mov esi, eax;
-
-            call addToDic;
-            //call loadNewShells;
-        }
-    }
-    __asm {
-        //end
-        jmp[shellgen_jmpback];
-    }*/
-
-}
 
 std::string shell_string;
 const char* shell_char;
@@ -202,15 +89,33 @@ void getShellName() {
     shell_char = shell_string.c_str();
 }
 
-DWORD sm_jmpback = 0;
-void __declspec(naked) MidSMLoadHijack() {
-    getShellName();
+HMODULE mscvr80;
+
+DWORD loadshells_jmpback = 0;
+DWORD operator_new = 0;
+DWORD sf_widget_c = 0;
+DWORD add_to_dic = 0;
+
+void __declspec(naked) MidLoadShells() {
+    
     __asm {
-        mov edx, shell_char;
+        push 0x3C8;
+        call operator_new;
+        mov esi, eax;
+        add esp, 4;
+        mov edx, offset gn_name;
         mov eax, ebp;
-        jmp[sm_jmpback];
+        call sf_widget_c;
+        push ebp;
+        mov esi, eax;
+        call add_to_dic;
+
+        push 0x3C8;
+        call operator_new;
+        jmp[loadshells_jmpback];
     }
 }
+
 
 //drawing hooks
 DWORD test_jmpback = 0;
@@ -240,6 +145,59 @@ void __declspec(naked) ChangeMidShell() {
     }
 }
 
+DWORD v32;
+DWORD v1;
+DWORD* v2; //holds value of where memory at
+DWORD dic_in = 0;
+DWORD dic_key = 0;
+extern "C" void getNewShells() {
+    DWORD t = 0;
+    __asm {
+        push offset gn_name;
+        mov edx, v32;
+        push edx;
+        call dic_in;
+        mov ecx, eax;
+        call dic_key;
+        mov esi, v1;
+        lea ecx, [esi + 0x40];
+        mov eax, [eax];
+        push ecx;
+        push eax;
+        call DrawUIElement;
+        lea ecx, [esi + 0x40];
+        mov t, ecx;
+    }
+    //t += 1;
+}
+
+DWORD shellget_jmpback = 0;
+void __declspec(naked) MidShellGet() {
+
+    __asm {
+        call DrawUIElement;
+        lea eax, [esp + 0x14];
+        mov v32, eax;
+        mov v1, esi;
+    }
+    __asm {
+        push offset gn_name;
+        mov edx, v32;
+        push edx;
+        call edi; //dic instance
+       /* mov ecx, eax;
+        call ebx;//dic get key
+        mov esi, v1;
+        lea ecx, [esi + 0x40];
+        mov eax, [eax];
+        push ecx;
+        push eax;
+        call DrawUIElement;*/
+    }
+    __asm {
+        jmp[shellget_jmpback];
+    }
+}
 
 
 typedef char(__thiscall *GenerateWaaaghMeterShell)(char* ecx);
@@ -262,9 +220,10 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx) {
     return t;
 }
 
-//figure out where image data is actually loaded and change out the path for sm to the one we want
-//  -now just hijacking sm shell loading, works
-//  -figure out why there are two shells drawing now instead of the one
+//figure out how to properly allocate data in exe, apparently need to add 4 to esp, that fixes crash wtf, ig because of allocate?
+//fix crash on new shell loading
+//Get select ui element part in
+//  -two shells are drawing because we never load gn
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -275,7 +234,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     case DLL_PROCESS_ATTACH:
         base = (DWORD)GetModuleHandleA("DOW2.exe");
         gen_waaagh_target = reinterpret_cast<GenerateWaaaghMeterShell>(base + 0x76CF40);
-        gen_selection_target = reinterpret_cast<GenerateSelectionPanel>(base + 0x739850);
         sub_AD3960 = base + 0x6D3960;
         sub_AD3990 = base + 0x6D3990;
         reveal_waaagh = reinterpret_cast<RevealWaaaghUI>(base + 0x285660);
@@ -290,33 +248,41 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
         //used
         
-        max = (int)shells.size();
 
         //new patch stuff
         //used
-        shellgen_jmpback = base + 0x73C5E8;
-        newop = base + 0x9AA9B6;
         addToDic = base + 0x282760;
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C5E3), (DWORD)MidShellGenerate, 5); 
-        sm_jmpback = base + 0x73C1B0;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C1A9), (DWORD)MidSMLoadHijack, 5);
+        
+        loadshells_jmpback = base + 0x73C212;
+        operator_new = base + 0xB879D0;
+        sf_widget_c = base + 0x285050;
+        add_to_dic = base + 0x282760;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C208), (DWORD)MidLoadShells, 10);
         //new version
         change_jmpback = base + 0x76CF50;
         constant_shell = base + 0xF35720;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), (DWORD)ChangeMidShell, 5);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), (DWORD)ChangeMidShell, 5);
+        shellget_jmpback = base + 0x76CFDF;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CFDA), (DWORD)MidShellGet, 5);
+        
         test_jmpback = (base + 0x76D188);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
 
+        mscvr80 = GetModuleHandleA("MSVCR80");
+        if (mscvr80) {
+            operator_new = reinterpret_cast<DWORD>(GetProcAddress(mscvr80, MAKEINTRESOURCEA(15))); //new in the dll loaded by dow2
+        }
 
         util = GetModuleHandleA("Util.dll");
         if (util) {
             DicInstance = reinterpret_cast<DInstance>(GetProcAddress(util, MAKEINTRESOURCEA(533)));
             DicGetKey = reinterpret_cast<DGetKey>(GetProcAddress(util, MAKEINTRESOURCEA(385)));
+            dic_in = reinterpret_cast<DWORD>(GetProcAddress(util, MAKEINTRESOURCEA(533)));
+            dic_key = reinterpret_cast<DWORD>(GetProcAddress(util, MAKEINTRESOURCEA(385)));;
         }
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
         DetourAttach((void**)&gen_waaagh_target, GenerateWaaaghMeterShellDetour);
-        //DetourAttach((void**)&gen_selection_target, GenerateSelectionPanelDetour);
         DetourTransactionCommit();
         break;
     case DLL_THREAD_ATTACH:

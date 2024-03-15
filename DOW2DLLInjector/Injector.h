@@ -22,10 +22,11 @@
 #include <ws2tcpip.h>
 
 
-//current todo
+//current todo 1.8.1
+    // -add support for only loading dlls set in load order
+    // -make cullsphere patch adjustable by user
     // -shell patch
     // -fix requistion point upgrades fucking up healthbar
-    // -custom team layouts
 
 
 //backlog
@@ -33,7 +34,9 @@
 //      -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
 // -game finder for all mods, so easier to find match, similar to FAF(need money for this)
 // -figure out how to make lobby size "infinite"
+// -custom team layouts
 // -superheavy mode with no limits on popcap or heavies limit as a toggle
+// -make ui mod which allows adding new elements to every ui page (basically expanded shell patch)
 // -look into suggestions
     // -Fix soundbug, probably in shark.dll or fmod related; (SOUND: streaming buffer overflow: )
     // -add lan back
