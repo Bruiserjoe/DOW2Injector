@@ -34,6 +34,8 @@
 //      -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
 // -game finder for all mods, so easier to find match, similar to FAF(need money for this)
 // -figure out how to make lobby size "infinite"
+// -lobby that has tickboxes which are dynamically filled and correspond to .scar files located in a folder you designate
+// if it's ticked - that scar file is loaded on mission start
 // -custom team layouts
 // -superheavy mode with no limits on popcap or heavies limit as a toggle
 // -make ui mod which allows adding new elements to every ui page (basically expanded shell patch)

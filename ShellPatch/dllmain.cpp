@@ -122,12 +122,14 @@ void __declspec(naked) MidLoadShells() {
 
 //drawing hooks
 DWORD test_jmpback = 0;
+DWORD* render_ptr = nullptr;
 void __declspec(naked) TestMidDrawShell() {
     __asm {
         //lea ecx, [esi+0x48];
         //mov ecx, dword ptr[test1];
         //mov ecx, dword ptr[esi + 0x54];
-        mov ecx, dword ptr[esi + 0x44];
+        //mov ecx, dword ptr[esi + 0x44];
+        mov ecx, dword ptr[render_ptr];
         //mov ecx, dword ptr[tt];
         //mov ecx, dword ptr[esi + 0x4C];
         //mov al, 0x1;
@@ -193,7 +195,15 @@ void __declspec(naked) MidShellSelect() {
     }
 }
 
-
+void getRenderPointer(char* ecx1, std::string sh) {
+    DWORD r = sh_map.lookupShellPointer(sh);
+    if (sh_map.lookupBaseShell(sh)) {
+        render_ptr = (DWORD*)(ecx1 + r);
+    }
+    else {
+        render_ptr = (DWORD*)r;
+    }
+}
 
 typedef char(__thiscall *GenerateWaaaghMeterShell)(char* ecx);
 GenerateWaaaghMeterShell gen_waaagh_target = nullptr;
@@ -201,6 +211,7 @@ GenerateWaaaghMeterShell gen_waaagh_target = nullptr;
 char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
     getShellName();
     std::string sh(shell_name);
+    getRenderPointer(ecx1, sh);
     if (sh.compare("race_ork") == 0) {
         BYTE* src = (BYTE*)"\x68\x78\x52\x11\x01";
         MemPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), src, 5); //ChangeMidShell
@@ -237,8 +248,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         //testing for the waaagh meter patch
         DrawUIElement = base + 0x6D39C0;
         SelectUIElement = base + 0x285450;
-
-
+        sh_map.setRacePointer("race_marine", false, tt);
+        
 
         //used
         
