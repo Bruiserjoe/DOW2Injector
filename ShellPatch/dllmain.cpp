@@ -58,6 +58,8 @@ DInstance DicInstance = nullptr;
 typedef int* (__thiscall* DGetKey)(int* esi, const char* p1);
 DGetKey DicGetKey = nullptr;
 DWORD DrawUIElement = 0;
+DWORD SelectUIElement = 0;
+
 
 //shit that actually matters lol
 DWORD select_a1 = 0;
@@ -70,7 +72,8 @@ const char* cur_name = "/waaagh_meter_shell/meter_mc/gn";
 //shell generation hooks
 
 
-
+DWORD t = 0;
+DWORD* tt = &t;
 
 const char* gn_name = "/waaagh_meter_shell/meter_mc/gn";
 
@@ -124,7 +127,8 @@ void __declspec(naked) TestMidDrawShell() {
         //lea ecx, [esi+0x48];
         //mov ecx, dword ptr[test1];
         //mov ecx, dword ptr[esi + 0x54];
-        mov ecx, dword ptr[esi + 0x40];
+        mov ecx, dword ptr[esi + 0x44];
+        //mov ecx, dword ptr[tt];
         //mov ecx, dword ptr[esi + 0x4C];
         //mov al, 0x1;
         //mov edx, dword ptr[ecx];
@@ -150,60 +154,51 @@ DWORD v1;
 DWORD* v2; //holds value of where memory at
 DWORD dic_in = 0;
 DWORD dic_key = 0;
-extern "C" void getNewShells() {
-    DWORD t = 0;
-    __asm {
-        push offset gn_name;
-        mov edx, v32;
-        push edx;
-        call dic_in;
-        mov ecx, eax;
-        call dic_key;
-        mov esi, v1;
-        lea ecx, [esi + 0x40];
-        mov eax, [eax];
-        push ecx;
-        push eax;
-        call DrawUIElement;
-        lea ecx, [esi + 0x40];
-        mov t, ecx;
-    }
-    //t += 1;
-}
+
+
 
 DWORD shellget_jmpback = 0;
 void __declspec(naked) MidShellGet() {
 
     __asm {
-        call DrawUIElement;
-        lea eax, [esp + 0x14];
-        mov v32, eax;
-        mov v1, esi;
-    }
-    __asm {
         push offset gn_name;
-        mov edx, v32;
+        lea edx, [esp + 0x14];
         push edx;
         call edi; //dic instance
-       /* mov ecx, eax;
-        call ebx;//dic get key
-        mov esi, v1;
-        lea ecx, [esi + 0x40];
+        mov ecx, eax;
+        call ebx; //dic getkey
         mov eax, [eax];
+        lea ecx, [tt];
         push ecx;
         push eax;
-        call DrawUIElement;*/
+        call DrawUIElement; //drawuielement
     }
     __asm {
+        push 0x1115304
         jmp[shellget_jmpback];
     }
 }
+DWORD shellselect_jmpback = 0;
+void __declspec(naked) MidShellSelect() {
+    __asm {
+        call SelectUIElement;
+    }
+    __asm {
+        mov ecx, [tt];
+        xor al, al;
+        call SelectUIElement;
+    }
+    __asm {
+        jmp[shellselect_jmpback];
+    }
+}
+
 
 
 typedef char(__thiscall *GenerateWaaaghMeterShell)(char* ecx);
 GenerateWaaaghMeterShell gen_waaagh_target = nullptr;
 
-char __fastcall GenerateWaaaghMeterShellDetour(char* ecx) {
+char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
     getShellName();
     std::string sh(shell_name);
     if (sh.compare("race_ork") == 0) {
@@ -213,17 +208,16 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx) {
         MemPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), src, 5); //TestMidDrawShell
     }
     else {
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), (DWORD)ChangeMidShell, 5);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), (DWORD)ChangeMidShell, 5);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
     }
-    char t = gen_waaagh_target(ecx);
+    char t = gen_waaagh_target(ecx1);
     return t;
 }
 
 //figure out how to properly allocate data in exe, apparently need to add 4 to esp, that fixes crash wtf, ig because of allocate?
-//fix crash on new shell loading
 //Get select ui element part in
-//  -two shells are drawing because we never load gn
+//  -two shells are drawing because we never load gn, figure out why it is still drawing two tf inspect the selectuielemnt execution for new shell
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -242,7 +236,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         sfw = (base + 0x285050);
         //testing for the waaagh meter patch
         DrawUIElement = base + 0x6D39C0;
-
+        SelectUIElement = base + 0x285450;
 
 
 
@@ -258,13 +252,18 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         sf_widget_c = base + 0x285050;
         add_to_dic = base + 0x282760;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C208), (DWORD)MidLoadShells, 10);
+        
         //new version
         change_jmpback = base + 0x76CF50;
         constant_shell = base + 0xF35720;
         //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), (DWORD)ChangeMidShell, 5);
-        shellget_jmpback = base + 0x76CFDF;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CFDA), (DWORD)MidShellGet, 5);
         
+        shellget_jmpback = base + 0x76CF74;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF6F), (DWORD)MidShellGet, 5);
+        
+        shellselect_jmpback = base + 0x76D00F;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D00A), (DWORD)MidShellSelect, 5);
+
         test_jmpback = (base + 0x76D188);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
 
