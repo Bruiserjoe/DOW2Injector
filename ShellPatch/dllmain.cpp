@@ -99,20 +99,25 @@ DWORD operator_new = 0;
 DWORD sf_widget_c = 0;
 DWORD add_to_dic = 0;
 
+const char* cur_shell_load = nullptr;
 void __declspec(naked) MidLoadShells() {
     
-    __asm {
-        push 0x3C8;
-        call operator_new;
-        mov esi, eax;
-        add esp, 4;
-        mov edx, offset gn_name;
-        mov eax, ebp;
-        call sf_widget_c;
-        push ebp;
-        mov esi, eax;
-        call add_to_dic;
-
+    for (int i = 0; i < sh_map.shellNum(); i++) {
+        cur_shell_load = sh_map.getShell(i);
+        __asm {
+            push 0x3C8;
+            call operator_new;
+            mov esi, eax;
+            add esp, 4;
+            mov edx, offset cur_shell_load;
+            mov eax, ebp;
+            call sf_widget_c;
+            push ebp;
+            mov esi, eax;
+            call add_to_dic;
+        }
+    }
+     __asm{
         push 0x3C8;
         call operator_new;
         jmp[loadshells_jmpback];
@@ -122,7 +127,7 @@ void __declspec(naked) MidLoadShells() {
 
 //drawing hooks
 DWORD test_jmpback = 0;
-DWORD* render_ptr = nullptr;
+DWORD* render_ptr = tt;
 void __declspec(naked) TestMidDrawShell() {
     __asm {
         //lea ecx, [esi+0x48];
@@ -160,58 +165,73 @@ DWORD dic_key = 0;
 
 
 DWORD shellget_jmpback = 0;
+DWORD* temp_shell_target = 0;
 void __declspec(naked) MidShellGet() {
-
-    __asm {
-        push offset gn_name;
-        lea edx, [esp + 0x14];
-        push edx;
-        call edi; //dic instance
-        mov ecx, eax;
-        call ebx; //dic getkey
-        mov eax, [eax];
-        lea ecx, [tt];
-        push ecx;
-        push eax;
-        call DrawUIElement; //drawuielement
+    for (int i = 0; i < sh_map.shellNum(); i++) {
+        cur_shell_load = sh_map.getShell(i);
+        temp_shell_target = sh_map.getShellTarget(i);
+        __asm {
+            push offset cur_shell_load;
+            lea edx, [esp + 0x14];
+            push edx;
+            call edi; //dic instance
+            mov ecx, eax;
+            call ebx; //dic getkey
+            mov eax, [eax];
+            lea ecx, [temp_shell_target];
+            push ecx;
+            push eax;
+            call DrawUIElement; //drawuielement
+        }
     }
     __asm {
         push 0x1115304
         jmp[shellget_jmpback];
     }
 }
+std::string race_string = "";
+char* selection_panel_pointer = 0;
+void getRenderPointer() {
+    //sh_map.setRacePointer("race_marine", false, tt);
+    sh_map.updateRacePointers();
+    render_ptr = sh_map.lookupShellPointer(race_string);
+    if (sh_map.lookupBaseShell(race_string)) {
+        render_ptr = (DWORD*)(selection_panel_pointer + (DWORD)render_ptr);
+    }
+    render_ptr = sh_map.getShellTarget(0);
+}
+
+
 DWORD shellselect_jmpback = 0;
 void __declspec(naked) MidShellSelect() {
     __asm {
         call SelectUIElement;
     }
-    __asm {
-        mov ecx, [tt];
-        xor al, al;
-        call SelectUIElement;
+    for (int i = 0; i < sh_map.shellNum(); i++) {
+        temp_shell_target = sh_map.getShellTarget(i);
+        __asm {
+            mov ecx, [temp_shell_target];
+            xor al, al;
+            call SelectUIElement;
+        }
     }
     __asm {
+        call getRenderPointer;
         jmp[shellselect_jmpback];
     }
 }
 
-void getRenderPointer(char* ecx1, std::string sh) {
-    DWORD r = sh_map.lookupShellPointer(sh);
-    if (sh_map.lookupBaseShell(sh)) {
-        render_ptr = (DWORD*)(ecx1 + r);
-    }
-    else {
-        render_ptr = (DWORD*)r;
-    }
-}
+
 
 typedef char(__thiscall *GenerateWaaaghMeterShell)(char* ecx);
 GenerateWaaaghMeterShell gen_waaagh_target = nullptr;
 
+//tt is changed in gen_waaagh_target, need to set render ptr within one of these functions
 char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
     getShellName();
+    selection_panel_pointer = ecx1;
     std::string sh(shell_name);
-    getRenderPointer(ecx1, sh);
+    race_string = sh;
     if (sh.compare("race_ork") == 0) {
         BYTE* src = (BYTE*)"\x68\x78\x52\x11\x01";
         MemPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), src, 5); //ChangeMidShell
@@ -229,6 +249,7 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
 //figure out how to properly allocate data in exe, apparently need to add 4 to esp, that fixes crash wtf, ig because of allocate?
 //Get select ui element part in
 //  -two shells are drawing because we never load gn, figure out why it is still drawing two tf inspect the selectuielemnt execution for new shell
+//stack probably corrupted from using int i = 0; in for loops in naked functions just remove that
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -248,9 +269,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         //testing for the waaagh meter patch
         DrawUIElement = base + 0x6D39C0;
         SelectUIElement = base + 0x285450;
-        sh_map.setRacePointer("race_marine", false, tt);
         
-
+        sh_map.addShell("/waaagh_meter_shell/meter_mc/gn");
         //used
         
 

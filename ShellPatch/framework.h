@@ -37,8 +37,16 @@ bool JmpPatch(BYTE* dst, DWORD target, size_t size) {
     return true;
 }
 
+
+
 class ShellMap {
 private:
+    struct shell {
+        std::string name;
+        DWORD val = 0;
+        DWORD* target = &val;
+    };
+
     struct Memb {
         std::string race_name;
         std::string shell_name;
@@ -46,7 +54,7 @@ private:
         DWORD base_offset;
         DWORD* target;
     };
-
+    std::vector<shell> shell_names; //vector for all new shells added
     //probably use hashmap to lookup the correct shell for each race_
     std::vector<Memb> races;
 public:
@@ -58,17 +66,47 @@ public:
         races.push_back({ "race_tyranid", "/waaagh_meter_shell/meter_mc/tyr", true, 0x4C, nullptr });
     }
 
+    //shell logic
+    int shellNum() {
+        return shell_names.size();
+    }
+
+    const char* getShell(int index) {
+        return shell_names[index].name.c_str();
+    }
+
+    void addShell(std::string name) {
+        shell_names.push_back({ name });
+    }
+
+    DWORD* getShellTarget(int index) {
+        return shell_names[index].target;
+    }
+
+    //race stuff
+    
+    void updateRacePointers() {
+        for (int i = 0; i < races.size(); i++) {
+            for (int j = 0; j < shell_names.size(); j++) {
+                if (races[i].shell_name.compare(shell_names[j].name) == 0 && !races[i].base_shell) {
+                    races[i].target = shell_names[j].target;
+                }
+            }
+        }
+    }
+    
+    
     void setRacePointer(std::string race_name, bool base, DWORD* target) {
-        for (auto& i : races) {
-            if (i.race_name.compare(race_name) == 0) {
+        for (int i = 0; i < (int)races.size(); i++) {
+            if (races[i].race_name.compare(race_name) == 0) {
                 if (base) {
-                    i.base_shell = true;
-                    i.target = nullptr;
-                    i.base_offset = (DWORD)target;
+                    races[i].base_shell = true;
+                    races[i].target = nullptr;
+                    races[i].base_offset = (DWORD)target;
                 }
                 else {
-                    i.base_shell = false;
-                    i.target = target;
+                    races[i].base_shell = false;
+                    races[i].target = target;
                 }
             }
         }
@@ -83,18 +121,18 @@ public:
         return false;
     }
 
-    DWORD lookupShellPointer(std::string race_name) {
+    DWORD* lookupShellPointer(std::string race_name) {
         for (auto& i : races) {
             if (i.race_name.compare(race_name) == 0) {
                 if (i.base_shell) {
-                    return i.base_offset;
+                    return (DWORD*)i.base_offset;
                 }
                 else {
-                    return (DWORD)i.target;
+                    return i.target;
                 }
             }
         }
-        return (DWORD)nullptr;
+        return nullptr;
     }
 
     std::string lookupShell(std::string race_name) {
