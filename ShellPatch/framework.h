@@ -76,7 +76,8 @@ public:
     }
 
     void addShell(std::string name) {
-        shell_names.push_back({ name });
+        shell_names.push_back({name});
+        shell_names[shell_names.size() - 1].target = &shell_names[shell_names.size() - 1].val;
     }
 
     DWORD* getShellTarget(int index) {
