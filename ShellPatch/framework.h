@@ -84,6 +84,10 @@ public:
         return shell_names[index].target;
     }
 
+    void updateShellTarget(int index, DWORD* target) {
+        shell_names[index].target = target;
+    }
+
     //race stuff
     
     void updateRacePointers() {
@@ -120,6 +124,15 @@ public:
             }
         }
         return false;
+    }
+
+    DWORD getBaseShellOffset(std::string race_name) {
+        for (auto& i : races) {
+            if (i.race_name.compare(race_name) == 0) {
+                return i.base_offset;
+            }
+        }
+        return 0;
     }
 
     DWORD* lookupShellPointer(std::string race_name) {

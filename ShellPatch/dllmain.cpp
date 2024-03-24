@@ -61,9 +61,7 @@ DWORD DrawUIElement = 0;
 DWORD SelectUIElement = 0;
 
 
-//shit that actually matters lol
-DWORD select_a1 = 0;
-std::vector<std::string> shells = { "/waaagh_meter_shell/meter_mc/gn" };
+//shit that actually matters lol    
 const char* cur_name = "/waaagh_meter_shell/meter_mc/gn";
 
 
@@ -126,15 +124,28 @@ void __declspec(naked) MidLoadShells() {
 
 
 //drawing hooks
+std::string race_string = "";
+bool base_shell_yah = false;
 DWORD test_jmpback = 0;
 DWORD* render_ptr = nullptr;
+DWORD render_offset = 0;
 void __declspec(naked) TestMidDrawShell() {
-    __asm {
-        //lea ecx, [esi+0x48];
-        //mov ecx, dword ptr[test1];
-        //mov ecx, dword ptr[esi + 0x54];
-        //mov ecx, dword ptr[esi + 0x44];
-        mov ecx, dword ptr[render_ptr];
+    if (base_shell_yah) {
+        __asm {
+            mov ecx, esi;
+            add ecx, render_offset;
+            mov ecx, dword ptr[ecx];
+        }
+    }
+    else {
+        __asm {
+            //lea ecx, [esi+0x48];
+            //mov ecx, dword ptr[test1];
+            //mov ecx, dword ptr[esi + 0x54];
+            //mov ecx, dword ptr[esi + 0x44];
+            mov ecx, dword ptr[render_ptr];
+        }
+    }
         //mov ecx, dword ptr[tt];
         //mov ecx, dword ptr[esi + 0x4C];
         //mov al, 0x1;
@@ -142,6 +153,7 @@ void __declspec(naked) TestMidDrawShell() {
         //mov ecx, dword ptr [ecx];
         //call revwaaagh;
         //call selectuielement_location;
+    __asm{ 
         jmp[test_jmpback];
     }
 }
@@ -159,7 +171,17 @@ void __declspec(naked) ChangeMidShell() {
 DWORD dic_in = 0;
 DWORD dic_key = 0;
 
-
+char* selection_panel_pointer = 0;
+void getRenderPointer() {
+    //sh_map.setRacePointer("race_marine", false, tt);
+    sh_map.updateRacePointers();
+    render_ptr = sh_map.getShellTarget(0);
+    render_ptr = (DWORD*)sh_map.lookupShellPointer(race_string);
+    base_shell_yah = sh_map.lookupBaseShell(race_string);
+    if (base_shell_yah) {
+        render_offset = sh_map.getBaseShellOffset(race_string);
+    }
+}
 
 DWORD shellget_jmpback = 0;
 DWORD* temp_shell_target = 0;
@@ -179,56 +201,37 @@ void __declspec(naked) MidShellGet() {
             push ecx;
             push eax;
             call DrawUIElement; //drawuielement
-        }
-    }
-    __asm {
-        push 0x1115304
-        jmp[shellget_jmpback];
-    }
-}
-std::string race_string = "";
-char* selection_panel_pointer = 0;
-void getRenderPointer() {
-    //sh_map.setRacePointer("race_marine", false, tt);
-    sh_map.updateRacePointers();
-    render_ptr = sh_map.getShellTarget(0);
-    render_ptr = sh_map.lookupShellPointer(race_string);
-    //
-    if (sh_map.lookupBaseShell(race_string)) {
-        render_ptr = (DWORD*)(selection_panel_pointer + (DWORD)render_ptr);
-    }
-}
-
-
-DWORD shellselect_jmpback = 0;
-void __declspec(naked) MidShellSelect() {
-    __asm {
-        call SelectUIElement;
-    }
-    for (index_i = 0; index_i < sh_map.shellNum(); index_i++) {
-        temp_shell_target = sh_map.getShellTarget(index_i);
-        __asm {
             mov ecx, [temp_shell_target];
             xor al, al;
             call SelectUIElement;
         }
+        sh_map.updateShellTarget(index_i, temp_shell_target);
     }
+    getRenderPointer();
     __asm {
-        call getRenderPointer;
-        jmp[shellselect_jmpback];
+        push 0x1115304
+        jmp[shellget_jmpback];
     }
 }
 
 
 //rewrite generatewaaaghmeter shell functions
 
+
 DWORD v32 = 0;
 DWORD v17 = 0;
 DWORD v18 = 0;
 
+
+
+
 typedef char(__thiscall *GenerateWaaaghMeterShell)(char* ecx);
 GenerateWaaaghMeterShell gen_waaagh_target = nullptr;
 
+const char* waaagh_meter_mc = nullptr;
+const char* waaagh_text = nullptr;
+const char* waaagh_shell = nullptr;
+const char* global_abilities = nullptr;
 
 char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
     __asm {
@@ -239,13 +242,15 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
         mov eax, [edx + 0x4];
         mov v17, eax;
         mov eax, dword ptr[eax + 0xc8];
+        mov v18, eax;
+        mov dword ptr [esp + 0x10], eax
         mov edi, DWORD PTR ds : 0xf89100;
         mov dic_in, edi;
         mov ebx, DWORD PTR ds : 0xf89330;
         mov dic_key, ebx;
     }
 
-    for (int i = 0; i < sh_map.shellNum(); i++) {
+    /*for (int i = 0; i < sh_map.shellNum(); i++) {
         cur_shell_load = sh_map.getShell(i);
         temp_shell_target = sh_map.getShellTarget(i);
         DWORD t = 0;
@@ -274,21 +279,75 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
             mov ecx, [temp_shell_target];
             call SelectUIElement;
         }
-    }
-
+        sh_map.updateShellTarget(i, temp_shell_target);
+    }*/
     getShellName();
     std::string sh(shell_name);
-
-    /*for (int i = 0; i < sh_map.shellNum(); i++) {
-        DWORD tt = call_DictionaryInstance(i);
-        tt = call_DictionaryGetKey(tt);
-        call_DrawUIElement(ecx1, tt, sh_map.getShellTarget(i));
-        call_SelectUIElement(0, (char*)sh_map.getShellTarget(i));
-    }*/
-
-    /*selection_panel_pointer = ecx1;
-    std::string sh(shell_name);
     race_string = sh;
+    //getRenderPointer();
+
+    /*__asm {
+        mov esi, ecx1;
+        lea eax, [esi + 0x3C];
+        push eax;
+        mov eax, offset waaagh_meter_mc;
+        call sub_AD3960;
+    }
+    __asm {
+        lea ecx, [esi + 0x38];
+        push ecx;
+        mov eax, offset waaagh_text;
+        call sub_AD3990;
+    }
+
+    //determine shell to be drawn
+    temp_shell_target = sh_map.getShellTarget(1);
+    __asm {
+        mov al, 1;
+        mov ecx, [temp_shell_target];
+        call SelectUIElement;
+    }
+    //random float values that need to be stored
+    __asm {
+        mov esi, ecx1;
+        mov eax, dword ptr [v18];
+        fld DWORD PTR[eax + 0x9bc];
+        fstp DWORD PTR[esi + 0x24];
+        fld DWORD PTR[eax + 0x9cc];
+        fstp DWORD PTR[esi + 0x2c];
+    }
+
+    //waaagh_meter_shell drawui
+    __asm {
+        push offset waaagh_shell;
+        lea ecx, [esp + 0x14];
+        push ecx;
+        call dic_in;
+        mov ecx, eax;
+        call dic_key;
+        mov eax, [eax];
+        lea edx, [esi + 0x54];
+        push edx;
+        push eax;
+        call DrawUIElement;
+    }
+    //global abilities drawui
+    __asm {
+        push offset global_abilities;
+        lea ecx, [esp + 0x14];
+        push ecx;
+        call dic_in;
+        mov ecx, eax;
+        call dic_key;
+        mov eax, [eax];
+        lea edx, [esi + 0x58];
+        push edx;
+        push eax;
+        call DrawUIElement;
+        mov v17, eax;
+    }
+    */
+    selection_panel_pointer = ecx1;
     if (sh.compare("race_ork") == 0) {
         BYTE* src = (BYTE*)"\x68\x78\x52\x11\x01";
         MemPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), src, 5); //ChangeMidShell
@@ -297,16 +356,21 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
     }
     else {
         //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), (DWORD)ChangeMidShell, 5);
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
     }
-    char t = gen_waaagh_target(ecx1);*/
-    return v17;
+    __asm {
+        mov edi, dic_in;
+        mov ebx, dic_key;
+        mov esi, ecx1;
+    }
+    char t = gen_waaagh_target(ecx1);
+    return t;
 }
 
 //figure out how to properly allocate data in exe, apparently need to add 4 to esp, that fixes crash wtf, ig because of allocate?
 //Get select ui element part in
 //  -two shells are drawing because we never load gn, figure out why it is still drawing two tf inspect the selectuielemnt execution for new shell
-//stack probably corrupted from using int i = 0; in for loops in naked functions just remove that
+//remove regular shell loadi
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -316,6 +380,12 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     {
     case DLL_PROCESS_ATTACH:
         base = (DWORD)GetModuleHandleA("DOW2.exe");
+
+        waaagh_meter_mc = (const char*)base + 0xD1520C;
+        waaagh_text = (const char*)base + 0xD15324;
+        waaagh_shell = (const char*)base + 0xD151F8;
+        global_abilities = (const char*)base + 0xD14C08;
+
         gen_waaagh_target = reinterpret_cast<GenerateWaaaghMeterShell>(base + 0x76CF40);
         sub_AD3960 = base + 0x6D3960;
         sub_AD3990 = base + 0x6D3990;
@@ -328,11 +398,11 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         SelectUIElement = base + 0x285450;
         
         sh_map.addShell("/waaagh_meter_shell/meter_mc/gn");
-        sh_map.addShell("/waaagh_meter_shell/meter_mc/sm");
-        sh_map.addShell("/waaagh_meter_shell/meter_mc/ig");
-        sh_map.addShell("/waaagh_meter_shell/meter_mc/eld");
-        sh_map.addShell("/waaagh_meter_shell/meter_mc/tyr");
-        sh_map.addShell("/waaagh_meter_shell/meter_mc/csm");
+        //sh_map.addShell((const char*) base + 0xD15278); //sm
+        //sh_map.addShell((const char*)base + 0xD15304);//ig
+        //sh_map.addShell((const char*) base + 0xD15298); //eld
+        //sh_map.addShell((const char*) base + 0xD152BC); //tyr
+        //sh_map.addShell((const char*) base + 0xD152E0); //csm
         //used
         
 
@@ -354,8 +424,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         shellget_jmpback = base + 0x76CF74;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF6F), (DWORD)MidShellGet, 5);
         
-        shellselect_jmpback = base + 0x76D00F;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D00A), (DWORD)MidShellSelect, 5);
 
         test_jmpback = (base + 0x76D188);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
