@@ -57,16 +57,66 @@ private:
     std::vector<shell> shell_names; //vector for all new shells added
     //probably use hashmap to lookup the correct shell for each race_
     std::vector<Memb> races;
+
+    std::string readBeforeSemiColon(std::string line, int* index) {
+        std::string ret = "";
+        for (*index; *index < line.size() && line[*index] != ';'; (*index)++) {
+            ret.push_back(line[*index]);
+        }
+        return ret;
+    }
+    bool raceContains(std::string shell, std::string race) {
+        for (int i = 0; i < races.size(); i++) {
+            if (races[i].race_name.compare(race) == 0) {
+                races[i].base_shell = false;
+                races[i].shell_name = shell;
+                return true;
+            }
+        }
+        return false;
+    }
 public:
     ShellMap() {
-        races.push_back({ "race_marine", "/waaagh_meter_shell/meter_mc/gn", false, 0, nullptr });
+        //races.push_back({ "race_marine", "/waaagh_meter_shell/meter_mc/gn", false, 0, nullptr });
+        races.push_back({ "race_marine", "/waaagh_meter_shell/meter_mc/sm", true, 0x40, nullptr });
+        //races.push_back({ "race_imperial_guard", "/waaagh_meter_shell/meter_mc/nec", false, 0, nullptr });
         races.push_back({ "race_imperial_guard", "/waaagh_meter_shell/meter_mc/ig", true, 0x44, nullptr });
-        races.push_back({ "race_eldar", "/waaagh_meter_shell/meter_mc/sm", true, 0x40, nullptr });
+        races.push_back({ "race_eldar", "/waaagh_meter_shell/meter_mc/eld", true, 0x48, nullptr });
         races.push_back({ "race_chaos", "/waaagh_meter_shell/meter_mc/csm", true, 0x50, nullptr });
         races.push_back({ "race_tyranid", "/waaagh_meter_shell/meter_mc/tyr", true, 0x4C, nullptr });
     }
 
+    void loadFile(std::string path) {
+        std::ifstream file;
+        file.open(path);
+        std::string line;
+        while (getline(file, line)) {
+            int index = 0;
+            std::string race = readBeforeSemiColon(line, &index);
+            index++;
+            std::string shell = readBeforeSemiColon(line, &index);
+            if (!raceContains(shell, race)) {
+                races.push_back({ race, shell, false, 0, nullptr });
+            }
+            addShell(shell);
+        }
+
+        file.close();
+    }
+
     //shell logic
+    
+    int getShellIndex(std::string race_mame) {
+        for (int i = 0; i < shell_names.size(); i++) {
+            for (auto& j : races) {
+                if (j.race_name.compare(race_mame) == 0 && j.shell_name.compare(shell_names[i].name) == 0) {
+                    return i;
+                }
+            }
+        }
+        return 0;
+    }
+    
     int shellNum() {
         return shell_names.size();
     }

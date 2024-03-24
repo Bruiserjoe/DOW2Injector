@@ -3,6 +3,7 @@
 
 DWORD base;
 HMODULE util;
+HMODULE plat;
 ShellMap sh_map;
 
 DWORD image_jmpback;
@@ -74,8 +75,8 @@ const char* cur_name = "/waaagh_meter_shell/meter_mc/gn";
 
 const char* gn_name = "/waaagh_meter_shell/meter_mc/gn";
 
-std::string shell_string;
 const char* shell_char;
+std::string race_string = "";
 void getShellName() {
     __asm {
         mov ecx, dword ptr ds : 0x1335720;
@@ -85,8 +86,8 @@ void getShellName() {
         add eax, 0x70;
         mov shell_name, eax;
     }
-    shell_string = sh_map.lookupShell(shell_name);
-    shell_char = shell_string.c_str();
+    race_string = sh_map.lookupShell(shell_name);
+    shell_char = race_string.c_str();
 }
 
 HMODULE mscvr80;
@@ -98,20 +99,25 @@ DWORD add_to_dic = 0;
 
 int index_i = 0;
 const char* cur_shell_load = nullptr;
+char shell_load_index = 110;
 void __declspec(naked) MidLoadShells() {
-    
-    for (index_i = 0; index_i < sh_map.shellNum(); index_i++) {
+    getShellName();
+    for (index_i = 0; index_i < sh_map.shellNum(); index_i++, shell_load_index++) {
         cur_shell_load = sh_map.getShell(index_i);
         __asm {
             push 0x3C8;
             call operator_new;
             mov esi, eax;
             add esp, 4;
+            mov dword ptr[esp + 0x14], esi;
+            mov dl, shell_load_index;
+            mov BYTE PTR[esp + 0x2a4], dl;
             mov edx, offset cur_shell_load;
             mov eax, ebp;
             call sf_widget_c;
             push ebp;
             mov esi, eax;
+            mov BYTE PTR[esp + 0x2a8], 0x0
             call add_to_dic;
         }
     }
@@ -124,7 +130,6 @@ void __declspec(naked) MidLoadShells() {
 
 
 //drawing hooks
-std::string race_string = "";
 bool base_shell_yah = false;
 DWORD test_jmpback = 0;
 DWORD* render_ptr = nullptr;
@@ -349,14 +354,16 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
     */
     selection_panel_pointer = ecx1;
     if (sh.compare("race_ork") == 0) {
-        BYTE* src = (BYTE*)"\x68\x78\x52\x11\x01";
-        MemPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), src, 5); //ChangeMidShell
+        BYTE* src = (BYTE*)"\x68\x04\x53\x11\x01";
+        MemPatch(reinterpret_cast<BYTE*>(base + 0x76CF6F), src, 5);
+        //MemPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), src, 5); //ChangeMidShell
         src = (BYTE*)"\x68\xFF\x00\x00\x00";
         MemPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), src, 5); //TestMidDrawShell
     }
     else {
         //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), (DWORD)ChangeMidShell, 5);
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF6F), (DWORD)MidShellGet, 5);
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
     }
     __asm {
         mov edi, dic_in;
@@ -367,19 +374,35 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
     return t;
 }
 
+typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
+PlatGetOption plat_getoption = nullptr;
+
 //figure out how to properly allocate data in exe, apparently need to add 4 to esp, that fixes crash wtf, ig because of allocate?
 //Get select ui element part in
 //  -two shells are drawing because we never load gn, figure out why it is still drawing two tf inspect the selectuielemnt execution for new shell
-//remove regular shell loadi
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
                      )
 {
+    std::string modu;
+    char mod1[0x200];
+    bool ret = false;
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
         base = (DWORD)GetModuleHandleA("DOW2.exe");
+
+        plat = GetModuleHandleA("Platform.dll");
+        if (plat) {
+            plat_getoption = reinterpret_cast<PlatGetOption>(GetProcAddress(plat, MAKEINTRESOURCEA(78)));
+        }
+        //getting the module name
+        ret = plat_getoption("modname", mod1, 0x200);
+        modu = std::string(mod1);
+        modu = modu + ".shells";
+
+        sh_map.loadFile(modu);
 
         waaagh_meter_mc = (const char*)base + 0xD1520C;
         waaagh_text = (const char*)base + 0xD15324;
@@ -397,7 +420,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         DrawUIElement = base + 0x6D39C0;
         SelectUIElement = base + 0x285450;
         
-        sh_map.addShell("/waaagh_meter_shell/meter_mc/gn");
+        //sh_map.addShell("/waaagh_meter_shell/meter_mc/gn");
+        //sh_map.addShell("/waaagh_meter_shell/meter_mc/nec");
         //sh_map.addShell((const char*) base + 0xD15278); //sm
         //sh_map.addShell((const char*)base + 0xD15304);//ig
         //sh_map.addShell((const char*) base + 0xD15298); //eld
