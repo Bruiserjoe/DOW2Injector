@@ -37,6 +37,8 @@
 // -lobby that has tickboxes which are dynamically filled and correspond to .scar files located in a folder you designate
 // if it's ticked - that scar file is loaded on mission start
 // -custom team layouts
+// -neutral ai loaded on game start in lobby slot
+// -make gamemodes have limited races
 // -superheavy mode with no limits on popcap or heavies limit as a toggle
 // -make ui mod which allows adding new elements to every ui page (basically expanded shell patch)
 // -look into suggestions
