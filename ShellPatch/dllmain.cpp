@@ -67,8 +67,12 @@ DWORD add_to_dic = 0;
 int index_i = 0;
 const char* cur_shell_load = nullptr;
 char shell_load_index = 110;
+//maybe use offset of value in double pointer
 void __declspec(naked) MidLoadShells() {
-    getShellName();
+    /*__asm {
+        call add_to_dic;
+    }*/
+
     for (index_i = 0; index_i < sh_map.shellNum(); index_i++, shell_load_index++) {
         cur_shell_load = sh_map.getShell(index_i);
             __asm {
@@ -89,8 +93,6 @@ void __declspec(naked) MidLoadShells() {
             }
     }
      __asm{
-        push 0x3C8;
-        call operator_new;
         jmp[loadshells_jmpback];
     }
 }
@@ -113,6 +115,10 @@ void __declspec(naked) TestMidDrawShell() {
         __asm {
             mov ecx, dword ptr[render_ptr];
         }
+    }
+    __asm {
+        mov al, 0x1;
+        call SelectUIElement;
     }
     __asm{ 
         jmp[test_jmpback];
@@ -258,6 +264,7 @@ PlatGetOption plat_getoption = nullptr;
 //figure out how to properly allocate data in exe, apparently need to add 4 to esp, that fixes crash wtf, ig because of allocate?
 //Get select ui element part in
 //  -two shells are drawing because we never load gn, figure out why it is still drawing two tf inspect the selectuielemnt execution for new shell
+//noping out the initial loading of the shells is the only thing that creates the same problem for the regular shells, noping it out in generatewaaaghshell did nothing
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -299,11 +306,11 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         
         //sh_map.addShell("/waaagh_meter_shell/meter_mc/gn");
         //sh_map.addShell("/waaagh_meter_shell/meter_mc/nec");
-        //sh_map.addShell((const char*) base + 0xD15278); //sm
-        //sh_map.addShell((const char*)base + 0xD15304);//ig
-        //sh_map.addShell((const char*) base + 0xD15298); //eld
-        //sh_map.addShell((const char*) base + 0xD152BC); //tyr
-        //sh_map.addShell((const char*) base + 0xD152E0); //csm
+        sh_map.addShell((const char*) base + 0xD15278); //sm
+        sh_map.addShell((const char*)base + 0xD15304);//ig
+        sh_map.addShell((const char*) base + 0xD15298); //eld
+        sh_map.addShell((const char*) base + 0xD152BC); //tyr
+        sh_map.addShell((const char*) base + 0xD152E0); //csm
         //used
         
 
@@ -311,11 +318,11 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         //used
         addToDic = base + 0x282760;
         
-        loadshells_jmpback = base + 0x73C212;
+        loadshells_jmpback = base + 0x73C2C5;
         operator_new = base + 0xB879D0;
         sf_widget_c = base + 0x285050;
         add_to_dic = base + 0x282760;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C208), (DWORD)MidLoadShells, 10);
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C18A), (DWORD)MidLoadShells, 5);
         
         //new version
         change_jmpback = base + 0x76CF50;
@@ -329,7 +336,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF6F), (DWORD)MidShellGet, 5);
         
 
-        test_jmpback = (base + 0x76D188);
+        test_jmpback = (base + 0x76D18F);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
 
         mscvr80 = GetModuleHandleA("MSVCR80");

@@ -54,6 +54,7 @@ private:
         DWORD base_offset;
         DWORD* target;
     };
+    size_t size_before_org = 0;
     std::vector<shell> shell_names; //vector for all new shells added
     //probably use hashmap to lookup the correct shell for each race_
     std::vector<Memb> races;
@@ -102,6 +103,7 @@ public:
         }
 
         file.close();
+        size_before_org = shell_names.size();
     }
 
     //shell logic
@@ -118,7 +120,7 @@ public:
     }
 
     int shellNum() {
-        return shell_names.size();
+        return size_before_org;
     }
 
     const char* getShell(int index) {
