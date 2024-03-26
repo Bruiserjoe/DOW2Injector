@@ -31,6 +31,18 @@ Cullsphere Patch
 - Past 800 you can't really see much do to fog so this is not such a big deal
 - This can have a hit on performance but through testing it isn't so bad on 100-200 levels
 
+Shell Patch
+- Put in your designated mods folder
+- Edit selection_panel.gfx and selection_panel.lua to add your shells to UI
+    1. Add new shell images your module, see images below for where
+       ![alt text](https://github.com/Bruiserjoe/DOW2Injector/blob/main/Capture1.png?raw=true)
+    2. Edit the gfx file.
+         1. Start with adding a new image import for each new shell, easiest way is to just clone and edit an existing one
+         2. Add your DefineShape and DefineSprites for the individual shell, see image below for more detail
+         3. Add your PlaceObject for the shell in your waaagh_mc object, yours should be 366, in the image it is 437
+    3. Edit your {module_name}.shells file in main DOW2 Retribution folder, follow example files outline (MAKE SURE THERE ARE NO SPACES PRESENT!)
+
 Eight Player FFA Patch
 - Allows you to use eight player maps in ffa gamemodes
 - Player slots are a bit janky on eight player solo ffa, go to team ffa and create them and go back to solo ffa and they should be filled
+
