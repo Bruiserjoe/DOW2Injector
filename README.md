@@ -34,13 +34,17 @@ Cullsphere Patch
 Shell Patch
 - Put in your designated mods folder
 - Edit selection_panel.gfx and selection_panel.lua to add your shells to UI
-    1. Add new shell images your module, see images below for where
-       ![alt text](https://github.com/Bruiserjoe/DOW2Injector/blob/main/Capture1.png?raw=true)
-    2. Edit the gfx file.
-         1. Start with adding a new image import for each new shell, easiest way is to just clone and edit an existing one
-         2. Add your DefineShape and DefineSprites for the individual shell, see image below for more detail
-         3. Add your PlaceObject for the shell in your waaagh_mc object, yours should be 366, in the image it is 437
-    3. Edit your {module_name}.shells file in main DOW2 Retribution folder, follow example files outline (MAKE SURE THERE ARE NO SPACES PRESENT!)
+    1. Add new shell images your module, see images below for where <br />
+       ![alt text](https://github.com/Bruiserjoe/DOW2Injector/blob/main/Capture1.PNG?raw=true)
+       ![alt text](https://github.com/Bruiserjoe/DOW2Injector/blob/main/Capture2.PNG?raw=true)
+    3. Edit the gfx file.
+         1. Start with adding a new image import for each new shell, easiest way is to just clone and edit an existing one <br />
+            ![alt text](https://github.com/Bruiserjoe/DOW2Injector/blob/main/Capture3.PNG?raw=true)
+         2. Add your DefineShape and DefineSprites for the individual shell, see image below for more detail <br />
+            ![alt text](https://github.com/Bruiserjoe/DOW2Injector/blob/main/Capture4.PNG?raw=true)
+         3. Add your PlaceObject for the shell in your waaagh_mc object, yours should be 366, in the image it is 437 <br />
+            ![alt text](https://github.com/Bruiserjoe/DOW2Injector/blob/main/Capture5.PNG?raw=true)
+    4. Edit your {module_name}.shells file in main DOW2 Retribution folder, follow example files outline (MAKE SURE THERE ARE NO SPACES PRESENT!)
 
 Eight Player FFA Patch
 - Allows you to use eight player maps in ffa gamemodes
