@@ -22,24 +22,24 @@
 #include <ws2tcpip.h>
 
 
-//current todo 1.8.1
+//current todo 1.8.2
     // -add support for only loading dlls set in load order
     // -make cullsphere patch adjustable by user
-    // -shell patch
     // -fix requistion point upgrades fucking up healthbar
-
+//current todo 1.8.3
+    //gamemode patch
+        // -custom team layouts
+        // -figure out how to make lobby size "infinite"
+        // -lobby that has tickboxes which are dynamically filled and correspond to .scar files located in a folder you designate
+        // if it's ticked - that scar file is loaded on mission start
+        // -neutral ai loaded on game start in lobby slot
+        // -make gamemodes have limited races
+        // -superheavy mode with no limits on popcap or heavies limit as a toggle
 
 //backlog
 // -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
 //      -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
 // -game finder for all mods, so easier to find match, similar to FAF(need money for this)
-// -figure out how to make lobby size "infinite"
-// -lobby that has tickboxes which are dynamically filled and correspond to .scar files located in a folder you designate
-// if it's ticked - that scar file is loaded on mission start
-// -custom team layouts
-// -neutral ai loaded on game start in lobby slot
-// -make gamemodes have limited races
-// -superheavy mode with no limits on popcap or heavies limit as a toggle
 // -make ui mod which allows adding new elements to every ui page (basically expanded shell patch)
 // -look into suggestions
     // -Fix soundbug, probably in shark.dll or fmod related; (SOUND: streaming buffer overflow: )

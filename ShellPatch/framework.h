@@ -122,6 +122,9 @@ public:
     int shellNum() {
         return size_before_org;
     }
+    int totalShells() {
+        return shell_names.size();
+    }
 
     const char* getShell(int index) {
         return shell_names[index].name.c_str();
@@ -198,7 +201,7 @@ public:
                 }
             }
         }
-        return nullptr;
+        return races[0].target;
     }
 
     std::string lookupShell(std::string race_name) {

@@ -73,7 +73,7 @@ void __declspec(naked) MidLoadShells() {
         call add_to_dic;
     }*/
 
-    for (index_i = 0; index_i < sh_map.shellNum(); index_i++, shell_load_index++) {
+    for (index_i = 0; index_i < sh_map.totalShells(); index_i++, shell_load_index++) {
         cur_shell_load = sh_map.getShell(index_i);
             __asm {
                 push 0x3C8;
