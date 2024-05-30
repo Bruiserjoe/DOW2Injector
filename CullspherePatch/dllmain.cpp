@@ -1,5 +1,10 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "framework.h"
+DWORD base;
+HMODULE plat;
+Equation eq;
+typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
+PlatGetOption plat_getoption = nullptr;
 
 void error(const char* err_title, const char* err_message) {
     MessageBoxA(0, err_message, err_title, 0);
@@ -88,11 +93,26 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 
     //DetourRestoreAfterWith();
     //DetourIsHelperProcess();
-    
+    bool ret = false;
+    char mod1[0x200];
+    std::string modu;
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH:
         
+        //getting the module
+        base = (DWORD)GetModuleHandleA("DOW2.exe");
+
+        plat = GetModuleHandleA("Platform.dll");
+        if (plat) {
+            plat_getoption = reinterpret_cast<PlatGetOption>(GetProcAddress(plat, MAKEINTRESOURCEA(78)));
+        }
+        //getting the module name
+        ret = plat_getoption("modname", mod1, 0x200);
+        modu = std::string(mod1);
+        modu = modu + ".cullsphere";
+        eq = Equation(modu);
+
         //attaching the hook
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
