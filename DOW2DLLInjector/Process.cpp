@@ -253,7 +253,7 @@ void Injector::start(std::string cfgpath) {
     freeDLL(setupdll_name);
     //injecting mods folder dlls
     for (auto& i : dlls) {
-        if (!injectDLL(mods_folder + "\\" + i)) {
+        if (contains(i) && !injectDLL(mods_folder + "\\" + i)) {
             break;
         }
     }

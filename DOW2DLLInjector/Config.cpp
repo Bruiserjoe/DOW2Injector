@@ -51,6 +51,23 @@ std::string readLine(std::string data, size_t* start) {
     return ret;
 }
 
+std::string convertToLower(std::string str) {
+    std::string next = "";
+    for (auto& i : str) {
+        if (i >= 'A' && i <= 'Z') {
+            next.push_back(i + 32);
+        }
+        else {
+            next.push_back(i);
+        }
+    }
+    return next;
+}
+
+bool parseToBool (std::string str) {
+    return str.compare("true") == 0;
+}
+
 std::string Injector::readConfig(std::string path) {
     std::cout << "Reading config \n";
     std::string ret = "";
@@ -98,18 +115,23 @@ std::string Injector::readConfig(std::string path) {
         sleep_time = std::stoi(con);
         pos = str.find("console:");
         con = readAfterColon(str, pos);
-        if (con.compare("true") != 0) {
+        if (parseToBool(convertToLower(con))) {
             ShowWindow(GetConsoleWindow(), SW_HIDE);
         }
         pos = str.find("window:");
         con = readAfterColon(str, pos);
-        if (con.compare("true") != 0) {
+        if (parseToBool(convertToLower(con))) {
             window = false;
         }
 
         pos = str.find("img:");
         con = readAfterColon(str, pos);
         image_path = con;
+        pos = str.find("strict-load:");
+        con = readAfterColon(str, pos);
+        if (parseToBool(convertToLower(con))) {
+            strict_load = true;
+        }
         //reading load order
         pos = str.find("load-order:");
         std::string line = readLine(str, &pos);
@@ -125,6 +147,7 @@ std::string Injector::readConfig(std::string path) {
         file << "launch-options: \" -dev -nomovies\"";
         file << "sleep-after-menu: 500\n";
         file << "exe-path: local\n";
+        file << "strict-load: false\n";
         file << "load-order:\n"; 
         file << "end-load\n";
         file << "console: true\n";

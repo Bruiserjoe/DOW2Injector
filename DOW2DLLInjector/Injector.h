@@ -23,11 +23,12 @@
 
 
 //current todo 1.8.2
-    // -add support for only loading dlls set in load order
     // -make cullsphere patch adjustable by user
-    // -fix requistion point upgrades fucking up healthbar
+    // -replace profiler.dll
+    // -fix kharos project files merged
 //current todo 1.8.3
     //gamemode patch
+        // -fix requistion point upgrades fucking up healthbar
         // -custom team layouts
         // -figure out how to make lobby size "infinite"
         // -lobby that has tickboxes which are dynamically filled and correspond to .scar files located in a folder you designate
@@ -45,6 +46,7 @@
     // -Fix soundbug, probably in shark.dll or fmod related; (SOUND: streaming buffer overflow: )
     // -add lan back
     // -improve performance, improve model drawing(main issue with performance)
+    //          -fix ui rendering being seperate draw calls
     // -Fix last stand map issues
     // -Add more heros to last stand
     // -reverse server code
@@ -96,6 +98,7 @@ private:
     std::string cfg_path;
     bool window = true;
     bool local_folder = false;
+    bool strict_load = false;
     DWORD get_proc_id(const char* name) {
         DWORD p_id = 0;
         PROCESSENTRY32 pe32;
@@ -142,5 +145,6 @@ public:
     bool injectDLL(std::string name);
     bool findDLLS(std::string folder);
     void orderDLLS();
+    bool contains(std::string dll);
     bool freeDLL(std::string name);
 };

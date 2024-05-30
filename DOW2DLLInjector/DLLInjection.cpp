@@ -98,6 +98,17 @@ void Injector::orderDLLS() {
     }
 }
 
+bool Injector::contains(std::string dll) {
+    if (!strict_load) {
+        return true;
+    }
+    for (auto& i : load_order) {
+        if (i.compare(dll) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
 
 bool Injector::freeDLL(std::string dll_name){
     HMODULE modules[1024];

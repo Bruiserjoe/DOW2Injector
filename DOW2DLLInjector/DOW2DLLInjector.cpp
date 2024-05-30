@@ -42,7 +42,7 @@ std::string readafterequal(std::string str) {
 
 
 int main(int argc, char* argv[])
-{
+{   
     std::vector<std::string> args;
     std::string p = ""; //cfgpath
     for (int i = 0; i < argc; i++) {
