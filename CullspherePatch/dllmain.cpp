@@ -44,8 +44,9 @@ void __fastcall culldetour(int* ecx) {
     char* r_data = (char*)gr_data(tis); //getting the resource data structure
     //setting the value of cull_area_scale in the keyvaluecontainer
     float scale = camera_distance;
-    if (camera_distance < 800.0f) {
-        scale = (sinf(camera_distance * 0.0037f - 0.5f) + 1.0f) * 30.0f;
+    if (camera_distance < eq.getMax()) {
+        scale = eq.evaluate(scale);
+        // scale = (sinf(camera_distance * 0.0037f - 0.5f) + 1.0f) * 30.0f;
     }
     else {
         scale = 0.5f;

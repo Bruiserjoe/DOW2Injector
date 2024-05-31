@@ -23,7 +23,6 @@
 
 
 //current todo 1.8.2
-    // -make cullsphere patch adjustable by user
     // -replace profiler.dll
 //current todo 1.8.3
     //gamemode patch
