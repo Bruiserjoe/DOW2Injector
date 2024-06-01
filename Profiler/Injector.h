@@ -123,11 +123,11 @@ private:
     }
     void error(const char* err_title, const char* err_message) {
         MessageBoxA(0, err_message, err_title, 0);
-        //exit(-1);
+        exit(-1);
     }
 
     //playercfg related
-    void createcfgpath(std::string path);
+    void createcfgpath(std::string path, std::string module);
     //dll related
     bool injectDLL(std::string name);
     bool findDLLS(std::string folder);
@@ -143,7 +143,7 @@ public:
     void start(std::string cfgpath);
 
     //playercfg related
-    std::string createcfg();
+    std::string createcfg(std::string module);
     //process related
     // bool startProcess(std::string args);
     // void setProcess(std::string process);

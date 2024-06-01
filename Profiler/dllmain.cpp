@@ -21,8 +21,8 @@ std::string flipstring(std::string str) {
     return ret;
 }
 
-bool setcfg(Injector* in) {
-        std::string t = in->createcfg();
+bool setcfg(Injector* in, std::string module) {
+        std::string t = in->createcfg(module);
         std::string cfg;
         int i = t.size() - 1;
         for (; i >= 0 && t[i] != '/'; i--) {
@@ -67,26 +67,33 @@ void __declspec(naked) MidCfgLoad() {
     }
 }
 std::string module;
+typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
+PlatGetOption plat_getoption = nullptr;
 DWORD WINAPI MainThread(LPVOID param) {
-    bool er = false;
     Injector in;
-    setcfg(&in);
+    char mod1[0x200];
+    bool ret = plat_getoption("modname", mod1, 0x200);
+    module = std::string(mod1);
+    module = module + ".config";
+    setcfg(&in, module);
+    bool er = false;
     while (!er) {
         if (!first) {
             er = true;
         }
     }
+    ret = plat_getoption("modname", mod1, 0x200);
+    module = std::string(mod1);
+    module = module + ".config";
+    in.start(module);
     BYTE* src = (BYTE*)"\x55\x8B\xEC\x83\xE4\xF8";
     MemPatch(reinterpret_cast<BYTE*>(base + 0x7254F), src, 6);
     src = (BYTE*)"\x83\xC4\x0C\x68\x08\x57\x08\x01";
     MemPatch(reinterpret_cast<BYTE*>(base + 0x1D36B), src, 8);
-    in.start(module);
     return 0;
 }
 
-
-typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
-PlatGetOption plat_getoption = nullptr;
+//fix corruption of dow2 exe path when invalid folder read
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
@@ -110,9 +117,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 
         jmpback_midcfgload = (base + 0x1D37D);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x1D36B), (DWORD)MidCfgLoad, 8);
-        
-        CreateThread(0, 0, MainThread, hModule, 0, 0);
 
+        CreateThread(0, 0, MainThread, hModule, 0, 0);
         break;
     case DLL_PROCESS_DETACH:
         break;
