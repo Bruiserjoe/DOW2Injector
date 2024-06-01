@@ -1,8 +1,5 @@
 #pragma once
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
-#define _WINSOCKAPI_ 
 //https://stackoverflow.com/questions/21399650/cannot-include-both-files-winsock2-windows-h
-#pragma comment(lib, "ws2_32.lib")
 #pragma comment (lib,"Gdiplus.lib")
 #include <iostream>
 #include <Windows.h>
@@ -15,11 +12,8 @@
 #include <TlHelp32.h>
 #include <Psapi.h>
 #include <gdiplus.h>
-#include <WinSock2.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <iphlpapi.h>
-#include <ws2tcpip.h>
 
 
 //current todo 1.8.2
@@ -84,20 +78,27 @@ public:
 class Injector {
 private:
     DWORD pid;
-    HANDLE processh;
-    SOCKET tcpsock;
+    // HANDLE processh;
+    // SOCKET tcpsock;
     std::string exe_name;
-    std::string setupdll_name;
+    // std::string setupdll_name;
     std::string mods_folder;
     std::vector<std::string> dlls;
     std::vector<std::string> load_order;
+    struct Module {
+        std::string dll;
+        HMODULE hmod;
+    };
+    std::vector<Module> modules;
+
     size_t sleep_time;
     std::string image_path;
     std::string cfg_path;
     bool window = true;
     bool local_folder = false;
     bool strict_load = false;
-    DWORD get_proc_id(const char* name) {
+    
+    /* DWORD get_proc_id(const char* name) {
         DWORD p_id = 0;
         PROCESSENTRY32 pe32;
         pe32.dwSize = sizeof(PROCESSENTRY32);
@@ -115,7 +116,7 @@ private:
         }
         CloseHandle(snap);
         return p_id;
-    }
+    } */
     bool file_exists(std::string filename) {
         struct stat buffer;
         return (stat(filename.c_str(), &buffer) == 0);
@@ -124,25 +125,27 @@ private:
         MessageBoxA(0, err_message, err_title, 0);
         //exit(-1);
     }
-public:
-    ~Injector() {
-        CloseHandle(processh);
-    }
-    void start(std::string cfgpath);
 
-    //config related
-    std::string readConfig(std::string path);
     //playercfg related
     void createcfgpath(std::string path);
-    void communicatecfgpath(SOCKET sock);
-    //process related
-    bool startProcess(std::string args);
-    void setProcess(std::string process);
-    void setProcess(DWORD id);
     //dll related
     bool injectDLL(std::string name);
     bool findDLLS(std::string folder);
     void orderDLLS();
     bool contains(std::string dll);
     bool freeDLL(std::string name);
+    //config related
+    std::string readConfig(std::string path);
+public:
+    ~Injector() {
+        // CloseHandle(processh);
+    }
+    void start(std::string cfgpath);
+
+    //playercfg related
+    std::string createcfg();
+    //process related
+    // bool startProcess(std::string args);
+    // void setProcess(std::string process);
+    // void setProcess(DWORD id);
 };
