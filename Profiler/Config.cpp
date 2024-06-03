@@ -141,7 +141,7 @@ std::string Injector::readConfig(std::string path) {
     }
     else {
         std::ofstream file;
-        file.open(exe_name + ".config");
+        file.open(path);
         file << "module: none\n";
         file << "mod-folder: mods\n";
         file << "launch-options: \" -dev -nomovies\"\n";

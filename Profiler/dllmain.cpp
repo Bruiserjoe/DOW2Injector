@@ -21,6 +21,13 @@ std::string flipstring(std::string str) {
     return ret;
 }
 
+std::string cullPeriod(std::string str) {
+    std::string re = "";
+    for (uint32_t i = 0; i < str.size() && str[i] != '.'; i++) {
+        re.push_back(str[i]);
+    }
+    return re;
+}
 bool setcfg(Injector* in, std::string module) {
         std::string t = in->createcfg(module);
         std::string cfg;
@@ -52,8 +59,6 @@ void __declspec(naked) MenuMidHook() {
         jmp[menumidhookjmp];
     }
 }
-
-
 
 
 Injector in;
@@ -104,12 +109,11 @@ DWORD WINAPI MainThread(LPVOID param) {
     return 0;
 }
 
-//fix corruption of dow2 exe path when invalid folder read
+//if sxstrace problem ever comes up again
+//https://superuser.com/questions/1057460/error-the-application-has-failed-to-start-because-the-side-by-side-configuratio
 //400000
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
-    char mod1[0x200];
-    bool ret;
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH:
@@ -119,9 +123,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         if (plat) {
             plat_getoption = reinterpret_cast<PlatGetOption>(GetProcAddress(plat, MAKEINTRESOURCEA(78)));
         }
-        ret = plat_getoption("modname", mod1, 0x200);
-        module = std::string(mod1);
-        module = module + ".config";
         
         menumidhookjmp = base + 0x72555;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x7254F), (DWORD)MenuMidHook, 6);
