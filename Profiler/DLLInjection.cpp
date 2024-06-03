@@ -10,7 +10,7 @@ bool Injector::injectDLL(std::string name) {
     GetFullPathName(name.c_str(), MAX_PATH, dll_path, NULL);
     if (!file_exists(dll_path)) {
         std::string str = "dll " + name + " is not present";
-        error(str.c_str(), "File can't be found please redownload");
+        error(str.c_str());
         return false;
     }
 
@@ -62,7 +62,7 @@ bool Injector::findDLLS(std::string folder) {
     std::string files = folder + "\\*";
     HANDLE hFind = FindFirstFile(files.c_str(), &FileData);
     if (hFind == INVALID_HANDLE_VALUE) {
-        error("Folder is invalid", "Invalid folder passed");
+        error("Folder is invalid");
         return false;
     }
     std::cout << "Reading mods folder\n";

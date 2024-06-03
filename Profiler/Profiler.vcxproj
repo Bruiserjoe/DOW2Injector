@@ -151,7 +151,6 @@
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="PlayerCFG.cpp" />
     <ClCompile Include="Process.cpp" />
-    <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

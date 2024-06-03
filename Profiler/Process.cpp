@@ -132,6 +132,7 @@ std::string cullSlashExe(std::string str) {
     }
     return ret;
 }
+/*
 std::mutex mtx;
 bool run = true;
 void _windThread(std::string img_path) {
@@ -158,6 +159,7 @@ void _windThread(std::string img_path) {
         Sleep(10);
     }
 }
+*/
 
 //https://learn.microsoft.com/en-us/windows/win32/ipc/pipes
 //https://learn.microsoft.com/en-us/windows/win32/winsock/initializing-winsock
@@ -165,24 +167,19 @@ void _windThread(std::string img_path) {
 void Injector::start(std::string cfgpath) {
     std::string args = readConfig(cfgpath);
     //startup window related stuff
-    std::thread thr;
+    /*std::thread thr;
     if (window) {
         thr = std::thread(_windThread, this->image_path);
-    }
+    }*/
     if (!findDLLS(mods_folder)) {
-        mtx.lock();
+        /*mtx.lock();
         run = false;
         mtx.unlock();
         if (window) {
             thr.join();
-        }
+        }*/
         return;
     }
-
-    //don't need to use socket anymore
-    //just need to have seperate function to setup the player config
-
-
 
     //order the dlls, this is very important(not really) 
     orderDLLS();
@@ -193,11 +190,11 @@ void Injector::start(std::string cfgpath) {
             break;
         }
     }
-    mtx.lock();
+    /*mtx.lock();
     run = false;
     mtx.unlock();
     if (window) {
         thr.join();
-    }
+    }*/
     //system("pause");
 }

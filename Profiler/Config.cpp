@@ -121,7 +121,7 @@ std::string Injector::readConfig(std::string path) {
         pos = str.find("window:");
         con = readAfterColon(str, pos);
         if (parseToBool(convertToLower(con))) {
-            window = false;
+            // window = false;
         }
 
         pos = str.find("img:");
@@ -144,7 +144,7 @@ std::string Injector::readConfig(std::string path) {
         file.open(exe_name + ".config");
         file << "module: none\n";
         file << "mod-folder: mods\n";
-        file << "launch-options: \" -dev -nomovies\"";
+        file << "launch-options: \" -dev -nomovies\"\n";
         file << "sleep-after-menu: 500\n";
         file << "exe-path: local\n";
         file << "strict-load: false\n";
@@ -155,6 +155,7 @@ std::string Injector::readConfig(std::string path) {
         file << "img: test.bmp\n";
         file.close();
         mods_folder = "mods";
+        strict_load = false;
         ret = "DOW2.exe";
     }
     return ret;

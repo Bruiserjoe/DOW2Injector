@@ -54,10 +54,28 @@ void __declspec(naked) MenuMidHook() {
 }
 
 
+
+
+Injector in;
+char mod1[0x200];
+std::string module;
+typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
+PlatGetOption plat_getoption = nullptr;
+extern "C" void setmodule() {
+    bool ret = plat_getoption("modname", mod1, 0x200);
+    module = std::string(mod1);
+    module = module + ".config";
+    if (module.compare(".config") == 0) {
+        module = "default_config.config";
+    }
+    setcfg(&in, module);
+}
+
 DWORD jmpback_midcfgload;
 void __declspec(naked) MidCfgLoad() {
     __asm {
         add esp, 0x0C;
+        call setmodule;
         push cfgp;
         mov eax, esi;
         push pathp;
@@ -66,35 +84,28 @@ void __declspec(naked) MidCfgLoad() {
         jmp[jmpback_midcfgload];
     }
 }
-std::string module;
-typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
-PlatGetOption plat_getoption = nullptr;
 DWORD WINAPI MainThread(LPVOID param) {
-    Injector in;
-    char mod1[0x200];
-    bool ret = plat_getoption("modname", mod1, 0x200);
-    module = std::string(mod1);
-    module = module + ".config";
-    setcfg(&in, module);
+
     bool er = false;
     while (!er) {
         if (!first) {
             er = true;
         }
     }
-    ret = plat_getoption("modname", mod1, 0x200);
+    /*ret = plat_getoption("modname", mod1, 0x200);
     module = std::string(mod1);
-    module = module + ".config";
+    module = module + ".config";*/
     in.start(module);
-    BYTE* src = (BYTE*)"\x55\x8B\xEC\x83\xE4\xF8";
+    /*BYTE* src = (BYTE*)"\x55\x8B\xEC\x83\xE4\xF8";
     MemPatch(reinterpret_cast<BYTE*>(base + 0x7254F), src, 6);
     src = (BYTE*)"\x83\xC4\x0C\x68\x08\x57\x08\x01";
     MemPatch(reinterpret_cast<BYTE*>(base + 0x1D36B), src, 8);
+    */
     return 0;
 }
 
 //fix corruption of dow2 exe path when invalid folder read
-
+//400000
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
     char mod1[0x200];
@@ -117,6 +128,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 
         jmpback_midcfgload = (base + 0x1D37D);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x1D36B), (DWORD)MidCfgLoad, 8);
+
 
         CreateThread(0, 0, MainThread, hModule, 0, 0);
         break;
