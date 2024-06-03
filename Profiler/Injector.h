@@ -15,10 +15,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
-
-
-
 typedef void(__cdecl *Timestampedf)(const char*, ...);
 typedef void(__cdecl *Fatalf)(const char*, ...);
 
@@ -26,8 +22,11 @@ extern Timestampedf Timestampedtracef;
 extern Fatalf Fatal_f;
 
 //current todo 1.8.2
-    // -replace profiler.dll
+    //fix not being able to play vanilla
+
 //current todo 1.8.3
+    //fatalf from config file, IE check if the proper launch options are in use
+    // -fix requistion point upgrades fucking up healthbar
     //gamemode patch
         // -custom team layouts
         // -figure out how to make lobby size "infinite"
@@ -36,7 +35,6 @@ extern Fatalf Fatal_f;
         // -neutral ai loaded on game start in lobby slot
         // -make gamemodes have limited races
         // -superheavy mode with no limits on popcap or heavies limit as a toggle
-        // -fix requistion point upgrades fucking up healthbar
 
 //backlog
 // -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
@@ -67,7 +65,6 @@ private:
     };
     std::vector<Module> modules;
 
-    size_t sleep_time;
     std::string cfg_path;
     bool strict_load = false;
  

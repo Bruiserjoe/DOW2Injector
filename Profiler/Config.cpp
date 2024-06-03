@@ -91,9 +91,6 @@ bool Injector::readConfig(std::string path) {
         con = readAfterColon(str, pos);
         mods_folder = con;
 
-        pos = str.find("sleep-after-menu:");
-        con = readAfterColon(str, pos);
-        sleep_time = std::stoi(con);
 
         pos = str.find("strict-load:");
         con = readAfterColon(str, pos);
@@ -112,7 +109,6 @@ bool Injector::readConfig(std::string path) {
         std::ofstream file;
         file.open(path);
         file << "mod-folder: mods\n";
-        file << "sleep-after-menu: 500\n";
         file << "strict-load: false\n";
         file << "load-order:\n"; 
         file << "end-load\n";
