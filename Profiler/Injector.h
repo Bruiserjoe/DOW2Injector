@@ -16,8 +16,14 @@
 #include <stdlib.h>
 
 
-//add dbinternal::timestampedtracef for error throwing
-//issue with side-by-side config could be from differing c++ compiled run times
+
+
+
+typedef void(__cdecl *Timestampedf)(const char*, ...);
+typedef void(__cdecl *Fatalf)(const char*, ...);
+
+extern Timestampedf Timestampedtracef;
+extern Fatalf Fatal_f;
 
 //current todo 1.8.2
     // -replace profiler.dll
@@ -51,10 +57,7 @@
 class Injector {
 private:
     DWORD pid;
-    // HANDLE processh;
-    // SOCKET tcpsock;
     std::string exe_name;
-    // std::string setupdll_name;
     std::string mods_folder;
     std::vector<std::string> dlls;
     std::vector<std::string> load_order;
@@ -65,19 +68,12 @@ private:
     std::vector<Module> modules;
 
     size_t sleep_time;
-    std::string image_path;
     std::string cfg_path;
-    // bool window = true;
-    bool local_folder = false;
     bool strict_load = false;
  
     bool file_exists(std::string filename) {
         struct stat buffer;
         return (stat(filename.c_str(), &buffer) == 0);
-    }
-    void error(const char* err_message) {
-        // MessageBoxA(0, err_message, err_title, 0);
-        exit(-1);
     }
 
     //playercfg related
@@ -89,11 +85,8 @@ private:
     bool contains(std::string dll);
     bool freeDLL(std::string name);
     //config related
-    std::string readConfig(std::string path);
+    bool readConfig(std::string path);
 public:
-    ~Injector() {
-        // CloseHandle(processh);
-    }
     void start(std::string cfgpath);
 
     //playercfg related

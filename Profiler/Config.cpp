@@ -68,9 +68,9 @@ bool parseToBool (std::string str) {
     return str.compare("true") == 0;
 }
 
-std::string Injector::readConfig(std::string path) {
+bool Injector::readConfig(std::string path) {
     std::cout << "Reading config \n";
-    std::string ret = "";
+    bool ret = false;
     std::string cfgname;
     if (path.compare("") != 0) {
         cfgname = path;
@@ -86,47 +86,15 @@ std::string Injector::readConfig(std::string path) {
         std::string str = stream.str();
         size_t pos;
         std::string con = "";
-        pos = str.find("exe-path:");
-        con = readAfterColonWithSpaces(str, pos);
-        if (con.compare("local") != 0) {
-            ret = con;
-            local_folder = false;
-        }
-        else {
-            ret = "DOW2.exe";
-            local_folder = true;
-        }
-        pos = str.find("module:");
-        con = readAfterColon(str, pos);
-        if (con.compare("none") != 0) {
-            ret = ret + " -modname " + con;
-        }
         pos = str.find("mod-folder:");
         con.clear();
         con = readAfterColon(str, pos);
         mods_folder = con;
-        pos = str.find("launch-options:");
-        con.clear();
-        con = readAfterColonInQuotes(str, pos);
-        ret = ret + con;
 
         pos = str.find("sleep-after-menu:");
         con = readAfterColon(str, pos);
         sleep_time = std::stoi(con);
-        pos = str.find("console:");
-        con = readAfterColon(str, pos);
-        if (parseToBool(convertToLower(con))) {
-            ShowWindow(GetConsoleWindow(), SW_HIDE);
-        }
-        pos = str.find("window:");
-        con = readAfterColon(str, pos);
-        if (parseToBool(convertToLower(con))) {
-            // window = false;
-        }
 
-        pos = str.find("img:");
-        con = readAfterColon(str, pos);
-        image_path = con;
         pos = str.find("strict-load:");
         con = readAfterColon(str, pos);
         if (parseToBool(convertToLower(con))) {
@@ -138,25 +106,20 @@ std::string Injector::readConfig(std::string path) {
         while ((line = readLine(str, &pos)).compare("end-load")) {
             load_order.push_back(line);
         }
+        ret = true;
     }
     else {
         std::ofstream file;
         file.open(path);
-        file << "module: none\n";
         file << "mod-folder: mods\n";
-        file << "launch-options: \" -dev -nomovies\"\n";
         file << "sleep-after-menu: 500\n";
-        file << "exe-path: local\n";
         file << "strict-load: false\n";
         file << "load-order:\n"; 
         file << "end-load\n";
-        file << "console: true\n";
-        file << "window: true\n";
-        file << "img: test.bmp\n";
         file.close();
         mods_folder = "mods";
         strict_load = false;
-        ret = "DOW2.exe";
+        ret = false;
     }
     return ret;
 }

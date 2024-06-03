@@ -20,6 +20,15 @@ std::string cullexe(std::string path) {
 	}
 	return ret;
 }
+
+std::string cullPeriod(std::string str) {
+	std::string re = "";
+	for (uint32_t i = 0; i < str.size() && str[i] != '.'; i++) {
+		re.push_back(str[i]);
+	}
+	return re;
+}
+
 //generates the path to cfg
 void Injector::createcfgpath(std::string path, std::string module) {
 	for (int i = 0; (size_t)i < path.size(); i++) {
@@ -28,6 +37,6 @@ void Injector::createcfgpath(std::string path, std::string module) {
 		}
 	}
 	std::string p = cullexe(path);
-	p = p + module + "_playercfg.lua";
+	p = p + cullPeriod(module) + "_playercfg.lua";
 	cfg_path = p;
 }

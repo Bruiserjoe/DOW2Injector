@@ -3,8 +3,12 @@
 #include "Exports.h"
 DWORD base;
 HMODULE plat;
+HMODULE debug;
 std::atomic_bool first = ATOMIC_VAR_INIT(true);
 std::ofstream file;
+
+Timestampedf Timestampedtracef = nullptr;
+Fatalf Fatal_f = nullptr;
 
 //path and file name up to 256 bytes each
 std::string cfgfile;
@@ -21,13 +25,6 @@ std::string flipstring(std::string str) {
     return ret;
 }
 
-std::string cullPeriod(std::string str) {
-    std::string re = "";
-    for (uint32_t i = 0; i < str.size() && str[i] != '.'; i++) {
-        re.push_back(str[i]);
-    }
-    return re;
-}
 bool setcfg(Injector* in, std::string module) {
         std::string t = in->createcfg(module);
         std::string cfg;
@@ -97,15 +94,16 @@ DWORD WINAPI MainThread(LPVOID param) {
             er = true;
         }
     }
-    /*ret = plat_getoption("modname", mod1, 0x200);
+    er = plat_getoption("modname", mod1, 0x200);
     module = std::string(mod1);
-    module = module + ".config";*/
+    module = module + ".config";
     in.start(module);
-    /*BYTE* src = (BYTE*)"\x55\x8B\xEC\x83\xE4\xF8";
+    Timestampedtracef("PROFILER: Finished injecting dlls");
+    BYTE* src = (BYTE*)"\x55\x8B\xEC\x83\xE4\xF8";
     MemPatch(reinterpret_cast<BYTE*>(base + 0x7254F), src, 6);
     src = (BYTE*)"\x83\xC4\x0C\x68\x08\x57\x08\x01";
     MemPatch(reinterpret_cast<BYTE*>(base + 0x1D36B), src, 8);
-    */
+
     return 0;
 }
 
@@ -120,10 +118,14 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         base = (DWORD)GetModuleHandleA("DOW2.exe");
 
         plat = GetModuleHandleA("Platform.dll");
+        debug = GetModuleHandleA("Debug.dll");
         if (plat) {
             plat_getoption = reinterpret_cast<PlatGetOption>(GetProcAddress(plat, MAKEINTRESOURCEA(78)));
         }
-        
+        if (debug) {
+            Timestampedtracef = reinterpret_cast<Timestampedf>(GetProcAddress(debug, MAKEINTRESOURCEA(50)));
+            Fatal_f = reinterpret_cast<Fatalf>(GetProcAddress(debug, MAKEINTRESOURCEA(31)));
+        }
         menumidhookjmp = base + 0x72555;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x7254F), (DWORD)MenuMidHook, 6);
 
