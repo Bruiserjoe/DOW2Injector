@@ -3,15 +3,13 @@ DLL injector which injects DLLs into DOW2 and starts the game to make sure the d
 
 Setup guide
 - Download and extract
-- Put the exe and SetupDLL.dll in main Retribution folder and create a folder called mods
+- Put extracted contents in main Retribution folder and create a folder called mods
 - put desired patches in mods folder
-- Run the exe to play the game with the patches
+- Set the proper launch options for your mod and run
 - Take a look at the config file generated after first run
 
 Fixes
-- If you experience crashes on startup or first menu button pressed try increasing the sleep-after-menu time, it's in milliseconds
-- Otherwise try changing the load order
-- This is still early in development so issues are expected
+- Try changing the load order of the mods
 
 
 Gamemode Patch
@@ -27,6 +25,7 @@ Gamemode Patch
 
 Cullsphere Patch
 - Simple as putting in mods folder
+- Comes with example .cullsphere, the first line is the equation used and the second line is the cutoff for where the equation should stop being used
 - Will dynamically change cullsphere size up to zoom level 800 at which point it will set it to a small level to cull basically everything
 - Past 800 you can't really see much do to fog so this is not such a big deal
 - This can have a hit on performance but through testing it isn't so bad on 100-200 levels
