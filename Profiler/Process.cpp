@@ -41,7 +41,6 @@ void Injector::start(std::string cfgpath) {
 
     //order the dlls, this is very important(not really) 
     orderDLLS();
-    // Sleep(sleep_time); //just to be safe, some stuff still loading on first menu call
     //injecting mods folder dlls
     for (auto& i : dlls) {
         if (contains(i) && !injectDLL(mods_folder + "\\" + i)) {

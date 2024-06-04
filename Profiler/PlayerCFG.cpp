@@ -27,7 +27,7 @@ std::string cullPeriod(std::string str) {
 		re.push_back(str[i]);
 	}
 	return re;
-}
+}	
 
 //generates the path to cfg
 void Injector::createcfgpath(std::string path, std::string module) {
@@ -37,6 +37,7 @@ void Injector::createcfgpath(std::string path, std::string module) {
 		}
 	}
 	std::string p = cullexe(path);
-	p = p + cullPeriod(module) + "_playercfg.lua";
+	std::string tmod = (module.compare(".config") == 0) ? "player_cfg.lua" : cullPeriod(module);
+	p = p + tmod + "_playercfg.lua";
 	cfg_path = p;
 }

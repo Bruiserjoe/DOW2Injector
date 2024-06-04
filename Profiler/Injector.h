@@ -21,12 +21,11 @@ typedef void(__cdecl *Fatalf)(const char*, ...);
 extern Timestampedf Timestampedtracef;
 extern Fatalf Fatal_f;
 
-//current todo 1.8.2
-    //fix not being able to play vanilla
 
 //current todo 1.8.3
-    //fatalf from config file, IE check if the proper launch options are in use
+    // -fatalf from config file, IE check if the proper launch options are in use
     // -fix requistion point upgrades fucking up healthbar
+    // -move all mods over to using timestampedf for error logging
     //gamemode patch
         // -custom team layouts
         // -figure out how to make lobby size "infinite"

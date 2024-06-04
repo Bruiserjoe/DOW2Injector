@@ -97,8 +97,10 @@ DWORD WINAPI MainThread(LPVOID param) {
     er = plat_getoption("modname", mod1, 0x200);
     module = std::string(mod1);
     module = module + ".config";
-    in.start(module);
-    Timestampedtracef("PROFILER: Finished injecting dlls");
+    if (module.compare(".config") != 0) {
+        in.start(module);
+        Timestampedtracef("PROFILER: Finished injecting dlls");
+    }
     BYTE* src = (BYTE*)"\x55\x8B\xEC\x83\xE4\xF8";
     MemPatch(reinterpret_cast<BYTE*>(base + 0x7254F), src, 6);
     src = (BYTE*)"\x83\xC4\x0C\x68\x08\x57\x08\x01";
