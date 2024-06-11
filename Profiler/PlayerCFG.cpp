@@ -1,9 +1,7 @@
 #include "Injector.h"
 
 std::string Injector::createcfg(std::string module) {
-	TCHAR szExeFileName[MAX_PATH];
-	GetModuleFileName(NULL, szExeFileName, MAX_PATH);
-	exe_name = std::string(szExeFileName);
+	exe_name = getExe();
 	std::string path = exe_name;
 
 	createcfgpath(path, module);

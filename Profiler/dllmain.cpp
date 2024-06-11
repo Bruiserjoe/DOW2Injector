@@ -109,6 +109,19 @@ DWORD WINAPI MainThread(LPVOID param) {
     return 0;
 }
 
+
+typedef bool(__stdcall *Plat_Options_Setup)(char* tis, const char* a2);
+Plat_Options_Setup plat_options_setup = nullptr;
+
+
+DWORD jmpback_midoptions;
+void __declspec(naked) MidOptionsSetup() {
+    __asm {
+        call plat_options_setup;
+        jmp[jmpback_midoptions];
+    }
+}
+
 //if sxstrace problem ever comes up again
 //https://superuser.com/questions/1057460/error-the-application-has-failed-to-start-because-the-side-by-side-configuratio
 //400000
@@ -117,25 +130,30 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH:
-        base = (DWORD)GetModuleHandleA("DOW2.exe");
+        if (in.getExe().find("DOW2.exe") != std::string::npos) {
+            base = (DWORD)GetModuleHandleA("DOW2.exe");
 
-        plat = GetModuleHandleA("Platform.dll");
-        debug = GetModuleHandleA("Debug.dll");
-        if (plat) {
-            plat_getoption = reinterpret_cast<PlatGetOption>(GetProcAddress(plat, MAKEINTRESOURCEA(78)));
+            plat = GetModuleHandleA("Platform.dll");
+            debug = GetModuleHandleA("Debug.dll");
+            if (plat) {
+                plat_getoption = reinterpret_cast<PlatGetOption>(GetProcAddress(plat, MAKEINTRESOURCEA(78)));
+                plat_options_setup = reinterpret_cast<Plat_Options_Setup>(GetProcAddress(plat, MAKEINTRESOURCEA(183)));
+            }
+            if (debug) {
+                Timestampedtracef = reinterpret_cast<Timestampedf>(GetProcAddress(debug, MAKEINTRESOURCEA(50)));
+                Fatal_f = reinterpret_cast<Fatalf>(GetProcAddress(debug, MAKEINTRESOURCEA(31)));
+            }
+            menumidhookjmp = base + 0x72555;
+            JmpPatch(reinterpret_cast<BYTE*>(base + 0x7254F), (DWORD)MenuMidHook, 6);
+
+            jmpback_midcfgload = (base + 0x1D37D);
+            JmpPatch(reinterpret_cast<BYTE*>(base + 0x1D36B), (DWORD)MidCfgLoad, 8);
+
+            jmpback_midoptions = (base + 0x1D85A);
+            JmpPatch(reinterpret_cast<BYTE*>(base + 0x1D854), (DWORD)MidOptionsSetup, 6);
+
+            CreateThread(0, 0, MainThread, hModule, 0, 0);
         }
-        if (debug) {
-            Timestampedtracef = reinterpret_cast<Timestampedf>(GetProcAddress(debug, MAKEINTRESOURCEA(50)));
-            Fatal_f = reinterpret_cast<Fatalf>(GetProcAddress(debug, MAKEINTRESOURCEA(31)));
-        }
-        menumidhookjmp = base + 0x72555;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x7254F), (DWORD)MenuMidHook, 6);
-
-        jmpback_midcfgload = (base + 0x1D37D);
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x1D36B), (DWORD)MidCfgLoad, 8);
-
-
-        CreateThread(0, 0, MainThread, hModule, 0, 0);
         break;
     case DLL_PROCESS_DETACH:
         break;

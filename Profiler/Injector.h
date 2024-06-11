@@ -87,4 +87,11 @@ public:
 
     //playercfg related
     std::string createcfg(std::string module);
+
+    std::string getExe() {
+        TCHAR szExeFileName[MAX_PATH];
+        GetModuleFileName(NULL, szExeFileName, MAX_PATH);
+        std::string ret = std::string(szExeFileName);
+        return ret;
+    }
 };
