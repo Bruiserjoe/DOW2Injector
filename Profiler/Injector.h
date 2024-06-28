@@ -1,6 +1,5 @@
 #pragma once
 //https://stackoverflow.com/questions/21399650/cannot-include-both-files-winsock2-windows-h
-#pragma comment (lib,"Gdiplus.lib")
 #include <iostream>
 #include <Windows.h>
 #include <string>
@@ -11,9 +10,9 @@
 #include <libloaderapi.h>
 #include <TlHelp32.h>
 #include <Psapi.h>
-#include <gdiplus.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <detours.h>
 
 typedef void(__cdecl *Timestampedf)(const char*, ...);
 typedef void(__cdecl *Fatalf)(const char*, ...);
@@ -30,10 +29,11 @@ extern Fatalf Fatal_f;
         // -custom team layouts
         // -figure out how to make lobby size "infinite"
         // -lobby that has tickboxes which are dynamically filled and correspond to .scar files located in a folder you designate
-        // if it's ticked - that scar file is loaded on mission start
+        //       -superheavy mode with no limits on popcap or heavies limit as a toggle
+        //       -if it's ticked - that scar file is loaded on mission start
         // -neutral ai loaded on game start in lobby slot
         // -make gamemodes have limited races
-        // -superheavy mode with no limits on popcap or heavies limit as a toggle
+        
 
 //backlog
 // -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
@@ -41,7 +41,6 @@ extern Fatalf Fatal_f;
 // -game finder for all mods, so easier to find match, similar to FAF(need money for this)
 // -make ui mod which allows adding new elements to every ui page (basically expanded shell patch)
 // -look into suggestions
-    // -Fix soundbug, probably in shark.dll or fmod related; (SOUND: streaming buffer overflow: )
     // -add lan back
     // -improve performance, improve model drawing(main issue with performance)
     //          -fix ui rendering being seperate draw calls

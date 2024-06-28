@@ -84,9 +84,9 @@ GamemodeChange gc = reinterpret_cast<GamemodeChange>(0x00486f6a);
 
 
 struct MapAddr {
-DWORD32 addr; //actual data addr
-size_t g_index; //game index
-std::string path; //file path
+    DWORD32 addr; //actual data addr
+    size_t g_index; //game index
+    std::string path; //file path
 };
 
 DWORD offset_1;

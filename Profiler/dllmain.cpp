@@ -86,6 +86,31 @@ void __declspec(naked) MidCfgLoad() {
         jmp[jmpback_midcfgload];
     }
 }
+
+
+//https://github.com/maximumgame/DOW2CoreFix/blob/master/DOW2CoreFix/main.cpp
+//via Maximumgame
+static void (WINAPI* RealGetSystemInfo)(LPSYSTEM_INFO info) = GetSystemInfo;
+
+void WINAPI GetSystemInfoDetour(LPSYSTEM_INFO info)
+{
+    RealGetSystemInfo(info);
+
+    //dow2 will hang if greater than 12 cores
+    if (info->dwNumberOfProcessors > 12)
+        info->dwNumberOfProcessors = 12;
+}
+
+bool Init(HINSTANCE hModule)
+{
+    DetourTransactionBegin();
+    DetourUpdateThread(GetCurrentThread());
+    //hook GetSystemInfo
+    DetourAttach(&(PVOID&)RealGetSystemInfo, GetSystemInfoDetour);
+    DetourTransactionCommit();
+    return true;
+}
+
 DWORD WINAPI MainThread(LPVOID param) {
 
     bool er = false;
@@ -127,9 +152,11 @@ void __declspec(naked) MidOptionsSetup() {
 //400000
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
+    bool ret;
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH:
+        ret = Init(hModule);
         if (in.getExe().find("DOW2.exe") != std::string::npos) {
             base = (DWORD)GetModuleHandleA("DOW2.exe");
 
@@ -154,7 +181,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 
             CreateThread(0, 0, MainThread, hModule, 0, 0);
         }
-        break;
+        return ret;
     case DLL_PROCESS_DETACH:
         break;
     }
