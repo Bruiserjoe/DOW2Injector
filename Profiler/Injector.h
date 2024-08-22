@@ -21,10 +21,17 @@ extern Timestampedf Timestampedtracef;
 extern Fatalf Fatal_f;
 
 
-//current todo 1.8.3
+//curent todo 1.9
+    // -merge rust patch (https://github.com/RipleyTom/rustpatch)
+    // -add networking patch
+    // -stable release version of reversed relicnet server
+    // -launcher (add game finder when server reversed)
     // -fatalf from config file, IE check if the proper launch options are in use
-    // -fix requistion point upgrades fucking up healthbar
     // -move all mods over to using timestampedf for error logging
+    // -header to easily load common functions for patches
+
+//current todo 1.9.1
+    // -fix requistion point upgrades fucking up healthbar
     //gamemode patch
         // -custom team layouts
         // -figure out how to make lobby size "infinite"
@@ -38,7 +45,6 @@ extern Fatalf Fatal_f;
 //backlog
 // -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
 //      -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
-// -game finder for all mods, so easier to find match, similar to FAF(need money for this)
 // -make ui mod which allows adding new elements to every ui page (basically expanded shell patch)
 // -look into suggestions
     // -add lan back
@@ -46,7 +52,6 @@ extern Fatalf Fatal_f;
     //          -fix ui rendering being seperate draw calls
     // -Fix last stand map issues
     // -Add more heros to last stand
-    // -reverse server code
 
 
 //don't pass this around in functions, no copy constructor or move constructor
