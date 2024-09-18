@@ -33,7 +33,9 @@ std::string cullSlashExe(std::string str) {
 //https://learn.microsoft.com/en-us/windows/win32/winsock/initializing-winsock
 //https://learn.microsoft.com/en-us/windows/win32/winsock/winsock-functions
 void Injector::start(std::string cfgpath) {
-    readConfig(cfgpath);
+    if (!readConfig(cfgpath)) {
+        return;
+    }
     //startup window related stuff
     if (!findDLLS(mods_folder)) {
         return;

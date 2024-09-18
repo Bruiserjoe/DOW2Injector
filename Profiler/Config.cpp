@@ -89,6 +89,9 @@ bool Injector::readConfig(std::string path) {
         pos = str.find("mod-folder:");
         con.clear();
         con = readAfterColon(str, pos);
+        if (con.compare("none") == 0) {
+            return false;
+        }
         mods_folder = con;
 
 
@@ -108,7 +111,7 @@ bool Injector::readConfig(std::string path) {
     else {
         std::ofstream file;
         file.open(path);
-        file << "mod-folder: mods\n";
+        file << "mod-folder: none\n";
         file << "strict-load: false\n";
         file << "load-order:\n"; 
         file << "end-load\n";
