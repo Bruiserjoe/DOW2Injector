@@ -23,6 +23,7 @@ extern Fatalf Fatal_f;
 
 //curent todo 1.9
     // -merge rust patch (https://github.com/RipleyTom/rustpatch)
+    // -change how cullsphere patch works, rip out algorithm solver, just add options for max curve etc
     // -add networking patch
     // -stable release version of reversed relicnet server
     // -launcher (add game finder when server reversed)

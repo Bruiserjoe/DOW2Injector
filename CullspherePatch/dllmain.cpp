@@ -2,7 +2,8 @@
 #include "framework.h"
 DWORD base;
 HMODULE plat;
-Equation eq;
+HMODULE debug;
+Config cfg;
 typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
 PlatGetOption plat_getoption = nullptr;
 
@@ -31,22 +32,22 @@ Retrieve f_ret = nullptr;
 typedef void* (__fastcall *GetResourceData)(void* ecx);
 GetResourceData gr_data = nullptr;
 
-
+Timestampedf Timestampedtracef;
+Fatalf Fatal_f;
 
 //keep * on the right to the function name or else get weird errors
 //now set the cull area scale everytime this detour is called
 void __fastcall culldetour(int* ecx) {
-    std::ofstream file;
-    file.open("mod_logs\\cullsphere.log");
-    file << "Cullsphere: before scaling\n";
-    file << "Ptr: " + std::to_string((int)ecx) + "\n";
+#ifdef _DEBUG
+    Timestampedtracef("CULLSPHERE PATCH: before scaling");
+    Timestampedtracef(("CULLSPHERE PATCH: Ptr: " + std::to_string((int)ecx)).c_str());
+#endif
     int* tis = ecx + 0x26; //use this to get the resource data from util
     char* r_data = (char*)gr_data(tis); //getting the resource data structure
     //setting the value of cull_area_scale in the keyvaluecontainer
     float scale = camera_distance;
-    if (camera_distance < eq.getMax()) {
-        scale = eq.evaluate(scale);
-        // scale = (sinf(camera_distance * 0.0037f - 0.5f) + 1.0f) * 30.0f;
+    if (camera_distance < cfg.getMax()) {
+        scale = (sinf(camera_distance * 0.0037f - 0.5f) + 1.0f) * 30.0f;
     }
     else {
         scale = 0.5f;
@@ -56,12 +57,15 @@ void __fastcall culldetour(int* ecx) {
     //error("Scale", str.c_str());
 
     f_set((void*)(r_data + 0x78), "cull_area_scale", scale); //this was causing the crash
-    file << "Before orignal function call\n";
+#ifdef _DEBUG
+    Timestampedtracef("CULLSPHERE PATCH:Before orignal function call");
+#endif
     org_retcull(ecx); //calling original function
     //again for safety
     f_set((void*)(r_data + 0x78), "cull_area_scale", scale); //this was causing the crash
-    file << "After cull function\n";
-    file.close();
+#ifdef _DEBUG
+    Timestampedtracef("CULLSPHERE PATCH: After cull function");
+#endif
 }
 
 //found the camera draw function
@@ -108,11 +112,16 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         if (plat) {
             plat_getoption = reinterpret_cast<PlatGetOption>(GetProcAddress(plat, MAKEINTRESOURCEA(78)));
         }
+        debug = GetModuleHandleA("Debug.dll");
+        if (debug) {
+            Timestampedtracef = reinterpret_cast<Timestampedf>(GetProcAddress(debug, MAKEINTRESOURCEA(50)));
+            Fatal_f = reinterpret_cast<Fatalf>(GetProcAddress(debug, MAKEINTRESOURCEA(31)));
+        }
         //getting the module name
         ret = plat_getoption("modname", mod1, 0x200);
         modu = std::string(mod1);
         modu = modu + ".cullsphere";
-        eq = Equation(modu);
+        cfg = Config(modu);
 
         //attaching the hook
         DetourTransactionBegin();
@@ -145,7 +154,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         DetourUpdateThread(GetCurrentThread());
         DetourDetach((void**)&cm_draw, cameradrawdetour);
         DetourTransactionCommit();
-        //file.close();
         break;
     }
     return TRUE;
