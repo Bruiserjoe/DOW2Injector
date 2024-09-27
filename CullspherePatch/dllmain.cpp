@@ -47,7 +47,7 @@ void __fastcall culldetour(int* ecx) {
     //setting the value of cull_area_scale in the keyvaluecontainer
     float scale = camera_distance;
     if (camera_distance < cfg.getMax()) {
-        scale = (sinf(camera_distance * 0.0037f - 0.5f) + 1.0f) * 30.0f;
+        scale = (sinf(camera_distance * cfg.getRate() - 0.5f) + 1.0f) * 30.0f;
     }
     else {
         scale = 0.5f;

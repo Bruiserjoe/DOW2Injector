@@ -17,28 +17,42 @@ extern Fatalf Fatal_f;
 class Config {
 private:
 	float max_distance;
-
+	float rate;
+	std::string readBufferLine(std::vector <char>& buffer, size_t* index) {
+		std::string str = "";
+		for (; *index < buffer.size() && buffer[*index] != '\n'; (*index)++) {
+			str.push_back(buffer[*index]);
+		}
+		(*index)++;
+		return str;
+	}
 public:
 	Config() {
 		max_distance = 800.0f;
+		rate = 0.0037f;
 	}
 
 	Config(std::string path) {
 		//path to equation
 		std::ifstream fi;
+		max_distance = 800.0f;
+		rate = 0.0037f;
 		fi.open(path, std::ifstream::ate | std::ifstream::binary);
 		if (!fi) {
 			max_distance = 800.0f;
 		}
 		else {
-			std::string str = "";
 			std::streamsize size = fi.tellg();
 			fi.close();
 			fi.open(path, std::ios::binary);
 			std::vector <char> buffer = std::vector<char>(size);
 			fi.seekg(0, std::ios::beg);
 			if (fi.read(buffer.data(), size)) {
-				max_distance = (str.size() > 0) ? std::stof(str) : 800.0f;
+				size_t index = 0;
+				std::string max_str = readBufferLine(buffer, &index);
+				max_distance = (max_str.size() > 0) ? std::stof(max_str) : 800.0f;
+				std::string rate_str = readBufferLine(buffer, &index);
+				rate = (rate_str.size() > 0) ? std::stof(rate_str) : 0.0037f;
 			}
 		}
 		fi.close();
@@ -46,6 +60,7 @@ public:
 	//copy constructor
 	Config(const Config& e) {
 		this->max_distance = e.max_distance;
+		this->rate = e.rate;
 	}
 
 	Config& operator=(const Config& e) {
@@ -59,5 +74,8 @@ public:
 
 	float getMax() {
 		return max_distance;
+	}
+	float getRate() {
+		return rate;
 	}
 };

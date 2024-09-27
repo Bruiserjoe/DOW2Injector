@@ -23,8 +23,8 @@ extern Fatalf Fatal_f;
 
 //curent todo 1.9
     // -merge rust patch (https://github.com/RipleyTom/rustpatch)
-    // -change how cullsphere patch works, rip out algorithm solver, just add options for max curve etc
-    // -add networking patch
+    // -change how cullsphere patch works, rip out algorithm solver, just add options for max curve etc X
+    // -add networking patch (connect to custom relicnet/lobby server)
     // -stable release version of reversed relicnet server
     // -launcher (add game finder when server reversed)
     // -fatalf from config file, IE check if the proper launch options are in use
@@ -41,6 +41,7 @@ extern Fatalf Fatal_f;
         //       -if it's ticked - that scar file is loaded on mission start
         // -neutral ai loaded on game start in lobby slot
         // -make gamemodes have limited races
+        // -fix crash on private lobby or joining gamemode with custom map pools
         
 
 //backlog
