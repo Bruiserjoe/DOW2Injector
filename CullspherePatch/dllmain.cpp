@@ -7,11 +7,6 @@ Config cfg;
 typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
 PlatGetOption plat_getoption = nullptr;
 
-void error(const char* err_title, const char* err_message) {
-    MessageBoxA(0, err_message, err_title, 0);
-    //exit(-1);
-}
-
 float camera_distance = 47.0f;
 
 typedef void(__fastcall *CullRetrieval)(int* param1);
@@ -52,9 +47,6 @@ void __fastcall culldetour(int* ecx) {
     else {
         scale = 0.5f;
     }
-    //float out_s = f_ret((void*)(r_data + 0x78), "cull_area_scale");
-    //std::string str = "Scale: " + std::to_string(out_s);
-    //error("Scale", str.c_str());
 
     f_set((void*)(r_data + 0x78), "cull_area_scale", scale); //this was causing the crash
 #ifdef _DEBUG

@@ -6,7 +6,6 @@
 #include <string>
 #include <detours.h>
 #include <vector>
-#include <fstream>
 
 void MemPatch(BYTE* dst, BYTE* src, size_t size) {
     DWORD prot;

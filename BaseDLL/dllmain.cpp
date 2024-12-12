@@ -1,9 +1,16 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "dllmain.h"
 
+typedef void(__cdecl* Timestampedf)(const char*, ...);
+typedef void(__cdecl* Fatalf)(const char*, ...);
+
+Timestampedf Timestampedtracef;
+Fatalf Fatal_f;
+
 int lobby_slots = 0;
 DWORD base;
 HMODULE plat;
+HMODULE debug;
 DWORD slots_addr;
 char g_ffa = 0;
 char g_tffa = 0;
@@ -30,36 +37,36 @@ GamemodeMap map;
 //is a member function of a class so we use fastcall to work around having to use thiscall
 //this was crashing because the last parameter wasn't getting cleared because we didnt have it in parameters
 DWORD32* __fastcall setgamemodedetour(DWORD32 index, DWORD32* address, char* a_struct) {
-//DWORD32* out = setgame_target(param2, in_ec);
+    //DWORD32* out = setgame_target(param2, in_ec);
 
-cur_index = index;
+    cur_index = index;
 
-//std::ofstream file;
-//file.open("mod_logs\\gamemode.log");
-//try both eax and ebx
-//file << "Before assembly\n";
-Mode m = map.getMode(index);
+    //std::ofstream file;
+    //file.open("mod_logs\\gamemode.log");
+    //try both eax and ebx
+    //file << "Before assembly\n";
+    Mode m = map.getMode(index);
 
-char ffa = m.ffa;
-char t_ffa = m.t_ffa;
-//g_ffa = ffa;
-//g_tffa = t_ffa;
-//getting access violation on eax access
-__asm {
-    mov dl, [ffa];
-    mov byte ptr[ebx + 0x5b], dl;
-    mov dl, [t_ffa];
-    mov byte ptr[ebx + 0x5c], dl;
-    mov edx, [address];
-    mov dword ptr[ebx + 0x50], edx;
-    mov edx, [index];
-    mov dword ptr[ebx + 0x54], edx;
-}
-g_ffa = ffa;
-g_tffa = t_ffa;
-//file << "Function finished\n";
-//file.close();
-return address;
+    char ffa = m.ffa;
+    char t_ffa = m.t_ffa;
+    //g_ffa = ffa;
+    //g_tffa = t_ffa;
+    //getting access violation on eax access
+    __asm {
+        mov dl, [ffa];
+        mov byte ptr[ebx + 0x5b], dl;
+        mov dl, [t_ffa];
+        mov byte ptr[ebx + 0x5c], dl;
+        mov edx, [address];
+        mov dword ptr[ebx + 0x50], edx;
+        mov edx, [index];
+        mov dword ptr[ebx + 0x54], edx;
+    }
+    g_ffa = ffa;
+    g_tffa = t_ffa;
+    //file << "Function finished\n";
+    //file.close();
+    return address;
 }
 
 
@@ -112,6 +119,7 @@ size_t generateMapList(std::string file_path, size_t g_index) {
     }
     //(DWORD32*)(t + 4) = tp;
     map_lists.push_back({ t, g_index, file_path });
+    Timestampedtracef("GAMEMODE PATCH: Successfully created new map list!");
     return map_lists.size() - 1;
 }
 
@@ -119,32 +127,33 @@ size_t generateMapList(std::string file_path, size_t g_index) {
 extern "C" DWORD32 getMapList() {
     for (auto& i : map_lists) {
         if (i.g_index == cur_index) {
+            Timestampedtracef("GAMEMODE PATCH: Returning custom map list!");
             return i.addr;
+        }
     }
-}
-DWORD32 t = 0;
-if (g_ffa == 0 && g_tffa == 0) {
-    char* data;
-    __asm {
-        push edx;
-        mov edx, dword ptr[campaign_maps];
-        add edx, 0xc;
-        mov data, edx;
-        mov t, edx;
-        pop edx;
+    DWORD32 t = 0;
+    if (g_ffa == 0 && g_tffa == 0) {
+        char* data;
+        __asm {
+            push edx;
+            mov edx, dword ptr[campaign_maps];
+            add edx, 0xc;
+            mov data, edx;
+            mov t, edx;
+            pop edx;
+        }
     }
-}
-else {
-    __asm {
-        push edx;
-        mov edx, dword ptr[campaign_maps];
-        add edx, 0x3c;
-        mov t, edx;
-        pop edx;
+    else {
+        __asm {
+            push edx;
+            mov edx, dword ptr[campaign_maps];
+            add edx, 0x3c;
+            mov t, edx;
+            pop edx;
+        }
     }
-}
 
-return t;
+    return t;
 }
 
 DWORD jmpbackaddr;
@@ -173,41 +182,41 @@ __asm {
 
 //rewrite lobbyslottypeset to mess with team setup - 00447b9a
 std::string getList(std::string line) {
-size_t pos = line.find("list:");
-pos += 5;
-std::string str;
-for (pos; pos < line.size() && line[pos] != ';'; pos++) {
-    if (line[pos] != ' ' && line[pos] != '\t') {
-        str.push_back(line[pos]);
+    size_t pos = line.find("list:");
+    pos += 5;
+    std::string str;
+    for (pos; pos < line.size() && line[pos] != ';'; pos++) {
+        if (line[pos] != ' ' && line[pos] != '\t') {
+            str.push_back(line[pos]);
+        }
     }
-}
-if (str.compare("default") != 0) {
-    str = "Data:Maps/" + str + "/";
-}
-return str;
+    if (str.compare("default") != 0) {
+        str = "Data:Maps/" + str + "/";
+    }
+    return str;
 }
 
 size_t getIndex(std::string line) {
-size_t i;
-std::string parse;
-for (i = 0; i < line.size() && line[i] != ':'; i++) {
-    parse.push_back(line[i]);
-}
-i = std::stoi(parse);
-return i;
+    size_t i;
+    std::string parse;
+    for (i = 0; i < line.size() && line[i] != ':'; i++) {
+        parse.push_back(line[i]);
+    }
+    i = std::stoi(parse);
+    return i;
 }
 
 void readListConfig(std::string path) {
-std::ifstream file;
-file.open(path);
-std::string line;
-while (getline(file, line)) {
-    std::string list = getList(line);
-    if (list.compare("default") != 0) {
-        generateMapList(list, getIndex(line));
+    std::ifstream file;
+    file.open(path);
+    std::string line;
+    while (getline(file, line)) {
+        std::string list = getList(line);
+        if (list.compare("default") != 0) {
+            generateMapList(list, getIndex(line));
+        }
     }
-}
-file.close();
+    file.close();
 }
 //workspace for infinite player slots
 
@@ -231,6 +240,11 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         plat = GetModuleHandleA("Platform.dll");
         if (plat) {
             plat_getoption = reinterpret_cast<PlatGetOption>(GetProcAddress(plat, MAKEINTRESOURCEA(78)));
+        }
+        debug = GetModuleHandleA("Debug.dll");
+        if (debug) {
+            Timestampedtracef = reinterpret_cast<Timestampedf>(GetProcAddress(debug, MAKEINTRESOURCEA(50)));
+            Fatal_f = reinterpret_cast<Fatalf>(GetProcAddress(debug, MAKEINTRESOURCEA(31)));
         }
         //getting the module name
         ret = plat_getoption("modname", mod1, 0x200);

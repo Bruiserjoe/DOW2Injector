@@ -8,6 +8,13 @@ ShellMap sh_map;
 
 std::vector<std::string> shells;
 
+typedef void(__cdecl* Timestampedf)(const char*, ...);
+typedef void(__cdecl* Fatalf)(const char*, ...);
+
+Timestampedf Timestampedtracef;
+Fatalf Fatal_f;
+HMODULE debug;
+
 typedef int(__fastcall* CreateSFWidget)(int e1, const char* a2, int a3);
 CreateSFWidget sf_widg = nullptr;
 DWORD sfw = 0;
@@ -239,6 +246,9 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
     std::string sh(shell_name);
     race_string = sh;
     selection_panel_pointer = ecx1;
+    #ifdef _DEBUG
+        Timestampedtracef("Shell Patch: patching the shell jmps in!");
+    #endif
     if (sh.compare("race_ork") == 0) {
         BYTE* src = (BYTE*)"\x68\x04\x53\x11\x01";
         MemPatch(reinterpret_cast<BYTE*>(base + 0x76CF6F), src, 5); //MidShellGet
@@ -282,13 +292,18 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         if (plat) {
             plat_getoption = reinterpret_cast<PlatGetOption>(GetProcAddress(plat, MAKEINTRESOURCEA(78)));
         }
+        debug = GetModuleHandleA("Debug.dll");
+        if (debug) {
+            Timestampedtracef = reinterpret_cast<Timestampedf>(GetProcAddress(debug, MAKEINTRESOURCEA(50)));
+            Fatal_f = reinterpret_cast<Fatalf>(GetProcAddress(debug, MAKEINTRESOURCEA(31)));
+        }
         //getting the module name
         ret = plat_getoption("modname", mod1, 0x200);
         modu = std::string(mod1);
         modu = modu + ".shells";
 
         sh_map.loadFile(modu);
-
+        Timestampedtracef("Shell Patch: Success loading config!");
         waaagh_meter_mc = (const char*)base + 0xD1520C;
         waaagh_text = (const char*)base + 0xD15324;
         waaagh_shell = (const char*)base + 0xD151F8;
@@ -303,7 +318,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         //testing for the waaagh meter patch
         DrawUIElement = base + 0x6D39C0;
         SelectUIElement = base + 0x285450;
-        
+        if (base == 0) {
+            Fatal_f("Shell Patch: Base is zero for some reason! WHAT THE FUCK!");
+            return FALSE;
+        }
         //sh_map.addShell("/waaagh_meter_shell/meter_mc/gn");
         //sh_map.addShell("/waaagh_meter_shell/meter_mc/nec");
         sh_map.addShell((const char*) base + 0xD15278); //sm

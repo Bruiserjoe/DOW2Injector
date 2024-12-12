@@ -28,7 +28,7 @@ extern Fatalf Fatal_f;
     // -stable release version of reversed relicnet server
     // -launcher (add game finder when server reversed)
     // -fatalf from config file, IE check if the proper launch options are in use
-    // -move all mods over to using timestampedf for error logging
+    // -move all mods over to using timestampedf for error logging X
     // -header to easily load common functions for patches
 
 //current todo 1.9.1
