@@ -84,3 +84,12 @@ bool Injector::freeDLL(std::string dll_name){
 
     return false;
 }
+
+//config needs to be read before running this, btw
+void Injector::injectImmediate() {
+    for (auto& i : immediate_load) {
+        if (!injectDLL(mods_folder + "\\" + i)) {
+            return;
+        }
+    }
+}

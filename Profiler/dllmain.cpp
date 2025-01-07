@@ -26,23 +26,23 @@ std::string flipstring(std::string str) {
 }
 
 bool setcfg(Injector* in, std::string module) {
-        std::string t = in->createcfg(module);
-        std::string cfg;
-        int i = t.size() - 1;
-        for (; i >= 0 && t[i] != '/'; i--) {
-            cfg.push_back(t[i]);
-        }
-        cfg = flipstring(cfg);
-        cfgfile = cfg;
-        cfgp = (char*)cfgfile.c_str();
-        std::string p;
-        for (; i >= 0; i--) {
-            p.push_back(t[i]);
-        }
-        p = flipstring(p);
-        path = p;
-        pathp = (char*)path.c_str();
-        return true;
+    std::string t = in->createcfg(module);
+    std::string cfg;
+    int i = t.size() - 1;
+    for (; i >= 0 && t[i] != '/'; i--) {
+        cfg.push_back(t[i]);
+    }
+    cfg = flipstring(cfg);
+    cfgfile = cfg;
+    cfgp = (char*)cfgfile.c_str();
+    std::string p;
+    for (; i >= 0; i--) {
+        p.push_back(t[i]);
+    }
+    p = flipstring(p);
+    path = p;
+    pathp = (char*)path.c_str();
+    return true;
 }
 
 
@@ -153,6 +153,7 @@ void __declspec(naked) MidOptionsSetup() {
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
     bool ret;
+    std::string modname;
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH:
@@ -170,6 +171,11 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
                 Timestampedtracef = reinterpret_cast<Timestampedf>(GetProcAddress(debug, MAKEINTRESOURCEA(50)));
                 Fatal_f = reinterpret_cast<Fatalf>(GetProcAddress(debug, MAKEINTRESOURCEA(31)));
             }
+            //immediate load
+            modname = in.getModuleCmdLine();
+            in.readConfig(modname + ".config");
+            in.injectImmediate();
+
             menumidhookjmp = base + 0x72555;
             JmpPatch(reinterpret_cast<BYTE*>(base + 0x7254F), (DWORD)MenuMidHook, 6);
 

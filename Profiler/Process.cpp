@@ -45,8 +45,17 @@ void Injector::start(std::string cfgpath) {
     orderDLLS();
     //injecting mods folder dlls
     for (auto& i : dlls) {
-        if (contains(i) && !injectDLL(mods_folder + "\\" + i)) {
-            break;
+        bool skip = false;
+        for (auto& j : immediate_load) {
+            if (j.compare(i) == 0) {
+                skip = true;
+                break;
+            }
+        }
+        if (!skip) {
+            if (contains(i) && !injectDLL(mods_folder + "\\" + i)) {
+                break;
+            }
         }
     }
 }

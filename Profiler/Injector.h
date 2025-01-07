@@ -27,9 +27,9 @@ extern Fatalf Fatal_f;
     // -add networking patch (connect to custom relicnet/lobby server)
     // -stable release version of reversed relicnet server
     // -launcher (add game finder when server reversed)
-    // -fatalf from config file, IE check if the proper launch options are in use
+    // -fatalf from config file, IE check if the proper launch options are in use 
     // -move all mods over to using timestampedf for error logging X
-    // -header to easily load common functions for patches
+    // -immediate dll injection option X
 
 //current todo 1.9.1
     // -fix requistion point upgrades fucking up healthbar
@@ -64,6 +64,7 @@ private:
     std::string mods_folder;
     std::vector<std::string> dlls;
     std::vector<std::string> load_order;
+    std::vector<std::string> immediate_load;
     struct Module {
         std::string dll;
         HMODULE hmod;
@@ -86,9 +87,13 @@ private:
     void orderDLLS();
     bool contains(std::string dll);
     bool freeDLL(std::string name);
+public:
     //config related
     bool readConfig(std::string path);
-public:
+    std::string getModuleCmdLine();
+    //dll related
+    void injectImmediate();
+
     void start(std::string cfgpath);
 
     //playercfg related

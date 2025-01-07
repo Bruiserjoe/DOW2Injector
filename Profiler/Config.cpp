@@ -68,7 +68,20 @@ bool parseToBool (std::string str) {
     return str.compare("true") == 0;
 }
 
+std::string readAfterSpace(std::string data, size_t* start) {
+    std::string ret = "";
+    for (*start; *start < data.size() && data[*start] != ' '; (*start)++);
+    (*start)++;
+    for (*start; *start < data.size() && data[*start] != ' ' && data[*start] != '-'; (*start)++) {
+        ret.push_back(data[*start]);
+    }
+    (*start)++;
+    return ret;
+}
+
 bool Injector::readConfig(std::string path) {
+    load_order.clear();
+    immediate_load.clear();
     std::cout << "Reading config \n";
     bool ret = false;
     std::string cfgname;
@@ -106,6 +119,12 @@ bool Injector::readConfig(std::string path) {
         while ((line = readLine(str, &pos)).compare("end-load")) {
             load_order.push_back(line);
         }
+        //reading the immediate loads
+        pos = str.find("immediate-load:");
+        line = readLine(str, &pos);
+        while ((line = readLine(str, &pos)).compare("end-immediate")) {
+            immediate_load.push_back(line);
+        }
         ret = true;
     }
     else {
@@ -115,6 +134,8 @@ bool Injector::readConfig(std::string path) {
         file << "strict-load: false\n";
         file << "load-order:\n"; 
         file << "end-load\n";
+        file << "immediate-load:\n";
+        file << "end-immediate\n";
         file.close();
         mods_folder = "mods";
         strict_load = false;
@@ -123,3 +144,14 @@ bool Injector::readConfig(std::string path) {
     return ret;
 }
 
+
+std::string Injector::getModuleCmdLine() {
+    std::string cmdLine = GetCommandLineA();
+    //get module name
+    size_t pos = cmdLine.find("-modname");
+    if (pos != std::string::npos) {
+        std::string ret = readAfterSpace(cmdLine, &pos);
+        return ret;
+    }
+    return "";
+}
