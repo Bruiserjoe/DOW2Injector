@@ -25,7 +25,7 @@ Gamemode Patch
 
 Cullsphere Patch
 - Simple as putting in mods folder
-- Comes with example .cullsphere, the first line is the equation used and the second line is the cutoff for where the equation should stop being used
+- Comes with example .cullsphere, the first line is the cutoff for increase, and the second is the rate at which the cullsphere increases in size
 - Will dynamically change cullsphere size up to zoom level 800 at which point it will set it to a small level to cull basically everything
 - Past 800 you can't really see much do to fog so this is not such a big deal
 - This can have a hit on performance but through testing it isn't so bad on 100-200 levels
