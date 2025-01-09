@@ -121,6 +121,10 @@ DWORD WINAPI MainThread(LPVOID param) {
     }
     er = plat_getoption("modname", mod1, 0x200);
     module = std::string(mod1);
+    if (!in.testCmdLine()) {
+        std::string s = "PROFILER: Launch options do not match " + module + ".config launch-options, must contain \"" + in.getLaunchOptions() + "\"";
+        Fatal_f(s.c_str());
+    }
     module = module + ".config";
     if (module.compare(".config") != 0) {
         in.start(module);

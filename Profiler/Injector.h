@@ -22,12 +22,12 @@ extern Fatalf Fatal_f;
 
 
 //curent todo 1.9
+    // -fatalf from config file, IE check if the proper launch options are in use X
     // -merge rust patch (https://github.com/RipleyTom/rustpatch)
     // -change how cullsphere patch works, rip out algorithm solver, just add options for max curve etc X
     // -add networking patch (connect to custom relicnet/lobby server)
     // -stable release version of reversed relicnet server
     // -launcher (add game finder when server reversed)
-    // -fatalf from config file, IE check if the proper launch options are in use 
     // -move all mods over to using timestampedf for error logging X
     // -immediate dll injection option X
 
@@ -60,6 +60,7 @@ extern Fatalf Fatal_f;
 class Injector {
 private:
     DWORD pid;
+    std::string launch_options;
     std::string exe_name;
     std::string mods_folder;
     std::vector<std::string> dlls;
@@ -91,6 +92,7 @@ public:
     //config related
     bool readConfig(std::string path);
     std::string getModuleCmdLine();
+    bool testCmdLine();
     //dll related
     void injectImmediate();
 
@@ -104,5 +106,8 @@ public:
         GetModuleFileName(NULL, szExeFileName, MAX_PATH);
         std::string ret = std::string(szExeFileName);
         return ret;
+    }
+    std::string getLaunchOptions() {
+        return launch_options;
     }
 };

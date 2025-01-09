@@ -99,8 +99,11 @@ bool Injector::readConfig(std::string path) {
         std::string str = stream.str();
         size_t pos;
         std::string con = "";
+        pos = str.find("launch-options:");
+        con = readAfterColonInQuotes(str, pos);
+        launch_options = con;
+
         pos = str.find("mod-folder:");
-        con.clear();
         con = readAfterColon(str, pos);
         if (con.compare("none") == 0) {
             return false;
@@ -130,6 +133,7 @@ bool Injector::readConfig(std::string path) {
     else {
         std::ofstream file;
         file.open(path);
+        file << "launch-options: \"\"\n";
         file << "mod-folder: none\n";
         file << "strict-load: false\n";
         file << "load-order:\n"; 
@@ -144,6 +148,72 @@ bool Injector::readConfig(std::string path) {
     return ret;
 }
 
+std::string ripOption(size_t* pos, std::string str) {
+    for (; *pos < str.size() && str[*pos] != '-'; (*pos)++);
+    std::string ret = "";
+    for (; *pos < str.size() && str[*pos] != ' '; (*pos)++) {
+        ret.push_back(str[*pos]);
+    }
+    return ret;
+}
+
+std::vector<std::string> splitOnDash(std::string str) {
+    std::vector<std::string> additionalValue = {
+        "-modname",
+        "-exec",
+        "-gameendexec",
+        "-recover",
+        "-testRegion",
+        "-Init",
+        "-logs",
+        "-scar",
+        "-connect_lobby",
+        "-randSeed",
+        "-shadowSize",
+        "-FXnear",
+        "-FXfar",
+        "-FXRenderLimit",
+        "-FXObjectLimit",
+    };
+
+    std::vector<std::string> ret;
+    for (size_t i = 0; i < str.size();) {
+        std::string s = ripOption(&i, str);
+        if (s.length() > 1) {
+            bool additional = false;
+            for (auto& j : additionalValue) {
+                if (s.compare(j) == 0) {
+                    additional = true;
+                    break;
+                }
+            }
+            if (additional) {
+                std::string add =  readAfterSpace(str, &i);
+                s = s + " " +  add;
+            }
+            ret.push_back(s);
+        }
+    }
+    return ret;
+}
+
+
+
+bool Injector::testCmdLine() {
+    std::string cmdLine = GetCommandLineA();
+    std::vector<std::string> commands = splitOnDash(cmdLine);
+    std::vector<std::string> launchs = splitOnDash(launch_options);
+    for (auto& i : launchs) {
+        bool ret = true;
+        for (auto& j : commands) {
+            if (j.compare(i) == 0) {
+                ret = false;
+            }
+        }
+        if (ret) return false;
+    }
+    return true;
+}
 
 std::string Injector::getModuleCmdLine() {
     std::string cmdLine = GetCommandLineA();
