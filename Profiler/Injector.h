@@ -20,10 +20,13 @@ typedef void(__cdecl *Fatalf)(const char*, ...);
 extern Timestampedf Timestampedtracef;
 extern Fatalf Fatal_f;
 
+//https://www.youtube.com/watch?v=KTS9Ujhqm6I
+//https://www.youtube.com/watch?v=mKUSLJjlajg
 
 //curent todo 1.9
     // -fatalf from config file, IE check if the proper launch options are in use X
     // -merge rust patch (https://github.com/RipleyTom/rustpatch)
+    // -fix crashes on gamemode patch
     // -change how cullsphere patch works, rip out algorithm solver, just add options for max curve etc X
     // -add networking patch (connect to custom relicnet/lobby server)
     // -stable release version of reversed relicnet server
@@ -45,15 +48,13 @@ extern Fatalf Fatal_f;
         
 
 //backlog
-// -improve mesh drawing - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
-//      -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
 // -make ui mod which allows adding new elements to every ui page (basically expanded shell patch)
 // -look into suggestions
     // -add lan back
     // -improve performance, improve model drawing(main issue with performance)
     //          -fix ui rendering being seperate draw calls
-    // -Fix last stand map issues
-    // -Add more heros to last stand
+    //           - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
+    //              -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
 
 
 //don't pass this around in functions, no copy constructor or move constructor

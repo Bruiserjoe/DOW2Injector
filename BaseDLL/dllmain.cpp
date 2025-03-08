@@ -1,6 +1,8 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "dllmain.h"
 
+//0x004132DA is causing crash on skirmish load
+
 typedef void(__cdecl* Timestampedf)(const char*, ...);
 typedef void(__cdecl* Fatalf)(const char*, ...);
 
@@ -34,39 +36,26 @@ GamemodeMap map;
 //https://guidedhacking.com/threads/introduction-to-calling-conventions-for-beginners.20041/
 // https://www.tripwire.com/state-of-security/ghidra-101-creating-structures-in-ghidra
 
-//is a member function of a class so we use fastcall to work around having to use thiscall
-//this was crashing because the last parameter wasn't getting cleared because we didnt have it in parameters
-DWORD32* __fastcall setgamemodedetour(DWORD32 index, DWORD32* address, char* a_struct) {
-    //DWORD32* out = setgame_target(param2, in_ec);
-
-    cur_index = index;
-
-    //std::ofstream file;
-    //file.open("mod_logs\\gamemode.log");
-    //try both eax and ebx
-    //file << "Before assembly\n";
-    Mode m = map.getMode(index);
-
-    char ffa = m.ffa;
-    char t_ffa = m.t_ffa;
-    //g_ffa = ffa;
-    //g_tffa = t_ffa;
-    //getting access violation on eax access
+Mode cur_mode;
+DWORD32 jmpback_setGamemodeHook = 0;
+void __declspec(naked) setGamemodeHook() {
     __asm {
-        mov dl, [ffa];
-        mov byte ptr[ebx + 0x5b], dl;
-        mov dl, [t_ffa];
-        mov byte ptr[ebx + 0x5c], dl;
-        mov edx, [address];
-        mov dword ptr[ebx + 0x50], edx;
-        mov edx, [index];
-        mov dword ptr[ebx + 0x54], edx;
+        mov cur_index, ecx;
     }
-    g_ffa = ffa;
-    g_tffa = t_ffa;
-    //file << "Function finished\n";
-    //file.close();
-    return address;
+    cur_mode = map.getMode(cur_index);
+    g_ffa = cur_mode.ffa;
+    g_tffa = cur_mode.t_ffa;
+    __asm {
+        mov dl, [g_ffa];
+        mov byte ptr[ebx + 0x5b], dl;
+        mov dl, [g_tffa];
+        mov byte ptr[ebx + 0x5c], dl;
+        mov dword ptr[ebx + 0x50], edx;
+        mov dword ptr[ebx + 0x54], ecx;
+    }
+    __asm {
+        jmp[jmpback_setGamemodeHook];
+    }
 }
 
 
@@ -91,7 +80,6 @@ GamemodeChange gc = reinterpret_cast<GamemodeChange>(0x00486f6a);
 
 
 struct MapAddr {
-    DWORD32 addr; //actual data addr
     size_t g_index; //game index
     std::string path; //file path
 };
@@ -118,18 +106,27 @@ size_t generateMapList(std::string file_path, size_t g_index) {
         drpadd_org((int)i);
     }
     //(DWORD32*)(t + 4) = tp;
-    map_lists.push_back({ t, g_index, file_path });
+    map_lists.push_back({ g_index, file_path });
     Timestampedtracef("GAMEMODE PATCH: Successfully created new map list!");
     return map_lists.size() - 1;
 }
 
 
 extern "C" DWORD32 getMapList() {
+    size_t l = 0;
     for (auto& i : map_lists) {
         if (i.g_index == cur_index) {
-            Timestampedtracef("GAMEMODE PATCH: Returning custom map list!");
-            return i.addr;
+            DWORD32 t = 0;
+            __asm {
+                mov edx, dword ptr[campaign_maps];
+                add edx, 0x4C;
+                add edx, 4;
+                mov t, edx;
+            }
+            t += (l * 12);
+            return t;
         }
+        l++;
     }
     DWORD32 t = 0;
     if (g_ffa == 0 && g_tffa == 0) {
@@ -210,10 +207,12 @@ void readListConfig(std::string path) {
     std::ifstream file;
     file.open(path);
     std::string line;
+    size_t count = 0;
     while (getline(file, line)) {
         std::string list = getList(line);
         if (list.compare("default") != 0) {
-            generateMapList(list, getIndex(line));
+            map_lists.push_back({ getIndex(line), list });
+            Timestampedtracef("GAMEMODE PATCH: Successfully created new map list!");
         }
     }
     file.close();
@@ -226,10 +225,7 @@ PlatGetOption plat_getoption = nullptr;
 //use modname to select cfg file to use in main dow2 folder, look at initmodule
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
-    //DetourRestoreAfterWith();
-    //DetourIsHelperProcess();
     std::ofstream f;
-    BYTE* src;
     std::string modu;
     char mod1[0x200];
     bool ret = false;
@@ -246,6 +242,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
             Timestampedtracef = reinterpret_cast<Timestampedf>(GetProcAddress(debug, MAKEINTRESOURCEA(50)));
             Fatal_f = reinterpret_cast<Fatalf>(GetProcAddress(debug, MAKEINTRESOURCEA(31)));
         }
+        Timestampedtracef("GAMEMODE PATCH: Injection start!");
         //getting the module name
         ret = plat_getoption("modname", mod1, 0x200);
         modu = std::string(mod1);
@@ -268,29 +265,15 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         mpdrp_org = reinterpret_cast<MapDropdown>(base + 0x7c351);
         drpadd_org = reinterpret_cast<DropDownAdd>(base + 0x7a2a20);
 
-
-
-
         readListConfig(modu);
         map = GamemodeMap();
         map.readConfig(modu);
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourAttach((void**)&setgame_target, setgamemodedetour);
-        DetourTransactionCommit();
+        jmpback_setGamemodeHook = base + 0x882FA;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x882C6), (DWORD)setGamemodeHook, 5);
 
-        
-        //MessageBoxA(NULL, "DLL Injected", "DLL injected", MB_OK);
-        //CreateThread(0, 0, MainThread, hModule, 0, 0);
+        Timestampedtracef("GAMEMODE PATCH: Injection finish!");
         break;
     case DLL_PROCESS_DETACH:
-        //f.open("mod_logs\\detachg.log");
-        //f << "Detached gamemode\n";
-        /*DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourDetach((void**)&setgame_target, setgamemodedetour);
-        DetourTransactionCommit();*/
-        //file.close();
         break;
 }
 
