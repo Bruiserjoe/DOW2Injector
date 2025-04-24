@@ -151,94 +151,7 @@ void __declspec(naked) MidOptionsSetup() {
     }
 }
 
-// move this back into gamemode patch eventually
-// two new detours which increase size of memory allocated and then load the map lists into the newly created space
 
-std::string getList(std::string line) {
-    size_t pos = line.find("list:");
-    pos += 5;
-    std::string str;
-    for (pos; pos < line.size() && line[pos] != ';'; pos++) {
-        if (line[pos] != ' ' && line[pos] != '\t') {
-            str.push_back(line[pos]);
-        }
-    }
-    if (str.compare("default") != 0) {
-        str = "Data:Maps/" + str + "/";
-    }
-    return str;
-}
-std::string gamemodepatch_filepath;
-std::vector<std::string> gamemodepatch_lists;
-size_t gamemodepatch_maps_count = 0;
-extern "C" void readMapList() {
-    std::ifstream file;
-    file.open(gamemodepatch_filepath);
-    if (!file) {
-        gamemodepatch_maps_count = 0x4C + 4;
-        return;
-    }
-    std::string line;
-    while (getline(file, line)) {
-        std::string list = getList(line);
-        if (list.compare("default") != 0) {
-            gamemodepatch_maps_count++;
-            gamemodepatch_lists.push_back(list);
-        }
-    }
-    gamemodepatch_maps_count = 0x4C + (gamemodepatch_maps_count * 12) + 4;
-    file.close();
-}
-
-DWORD32 jmpback_detourMapAlloc = 0;
-// detour to allocate more memory to maps list :)))
-void __declspec(naked) detourMapAlloc() {
-    readMapList();
-    __asm {
-        mov ebp, DWORD PTR[esp + 0x20];
-        push esi;
-        push edi;
-        push gamemodepatch_maps_count;
-        jmp[jmpback_detourMapAlloc];
-    }
-}
-
-typedef void(__stdcall* LoadMaps)(char* path, void* param2);
-LoadMaps ldmaps_org = nullptr;
-typedef DWORD32* (__thiscall* MapDropdown)(void* tis, int param1);
-MapDropdown mpdrp_org = nullptr;
-typedef void(__stdcall* DropDownAdd)(int param1);
-DropDownAdd drpadd_org = nullptr;
-
-DWORD32 gamemodepatch_map_start = 0;
-extern "C" void loadMapList() {
-    size_t start = 0x4C + 4;
-    for (auto& i : gamemodepatch_lists) {
-        ldmaps_org((char*)i.c_str(), (void*)(gamemodepatch_map_start + start));
-        char* d = ((char*)(gamemodepatch_map_start + start));
-        DWORD32* tp = mpdrp_org((d + 4), (int)(d + 4)); //begin pointer
-        //loop to set drop down buttons?
-        for (DWORD32* i = tp; i != (DWORD32*)(d + 0x4); i += 0x1eb) {
-            //do the map cleanupread function
-            drpadd_org((int)i);
-        }
-        start += 12;
-    }
-}
-
-DWORD32 jmpback_detourMapLoad = 0;
-// detour to load new map lists into our expanded memory
-void __declspec(naked) detourMapLoad() {
-    __asm {
-        call ldmaps_org;
-        mov eax, DWORD PTR [ebp + 0x0];
-        mov gamemodepatch_map_start, eax;
-    }
-    loadMapList();
-    __asm {
-        jmp[jmpback_detourMapLoad];
-    }
-}
 
 
 //if sxstrace problem ever comes up again
@@ -267,18 +180,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
             }
             //immediate load
             modname = in.getModuleCmdLine();
-            gamemodepatch_filepath = modname + ".gamemodes";
             in.readConfig(modname + ".config");
             in.injectImmediate();
-            // map detours, for gamemode patch
-            jmpback_detourMapAlloc = base + 0x7A36A2;
-            JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A369A), (DWORD)detourMapAlloc, 8);
-            jmpback_detourMapLoad = base + 0x7A36F0;
-            JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A36EB), (DWORD)detourMapLoad, 5);
-            //original functions for map stuff
-            ldmaps_org = reinterpret_cast<LoadMaps>(base + 0x7a42d0);
-            mpdrp_org = reinterpret_cast<MapDropdown>(base + 0x7c351);
-            drpadd_org = reinterpret_cast<DropDownAdd>(base + 0x7a2a20);
 
 
             // menu hook

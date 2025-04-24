@@ -25,8 +25,15 @@ extern Fatalf Fatal_f;
 
 //curent todo 1.9
     // -fatalf from config file, IE check if the proper launch options are in use X
+    // -borderless fullscreen patch 
+    // -extend module file type so you don't need the seperate config files scattered all over the dow2 folder
+    // -multiple module loading, the top level loaded will overwrite anything loaded after it
+    // -new, more responsive tools for editing mod data
+    // -scripts for converting file types to dow 2 file types
     // -merge rust patch (https://github.com/RipleyTom/rustpatch)
     // -fix crashes on gamemode patch
+    // -    think maybe is from mscvp versions being different?? I think I'm doing everything right otherwise
+    // -    copy map list loading more closely!
     // -change how cullsphere patch works, rip out algorithm solver, just add options for max curve etc X
     // -add networking patch (connect to custom relicnet/lobby server)
     // -stable release version of reversed relicnet server
@@ -45,16 +52,15 @@ extern Fatalf Fatal_f;
         // -neutral ai loaded on game start in lobby slot
         // -make gamemodes have limited races
         // -fix crash on private lobby or joining gamemode with custom map pools
-        
 
-//backlog
-// -make ui mod which allows adding new elements to every ui page (basically expanded shell patch)
-// -look into suggestions
+//current todo 2.0
+    // -ui patch (add elements to any ui page, also create new ui pages)
     // -add lan back
-    // -improve performance, improve model drawing(main issue with performance)
-    //          -fix ui rendering being seperate draw calls
-    //           - look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
-    //              -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
+    // -performance patch 
+        // -fix ui rendering being seperate draw calls
+          //           -look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
+         //              -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
+
 
 
 //don't pass this around in functions, no copy constructor or move constructor

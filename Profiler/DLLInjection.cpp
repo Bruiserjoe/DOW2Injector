@@ -6,6 +6,8 @@
 bool Injector::injectDLL(std::string name) {
     pid = GetCurrentProcessId();
     std::cout << "Injecting: " + name << "\n";
+    std::string log = "PROFILER: Injecting " + name;
+    Timestampedtracef(log.c_str());
     char dll_path[MAX_PATH] = { 0 };
     GetFullPathName(name.c_str(), MAX_PATH, dll_path, NULL);
     if (!file_exists(dll_path)) {
@@ -88,6 +90,8 @@ bool Injector::freeDLL(std::string dll_name){
 //config needs to be read before running this, btw
 void Injector::injectImmediate() {
     for (auto& i : immediate_load) {
+        std::string log = "PROFILER: Immediate load " + i;
+        Timestampedtracef(log.c_str());
         if (!injectDLL(mods_folder + "\\" + i)) {
             return;
         }
