@@ -38,100 +38,11 @@ bool JmpPatch(BYTE* dst, DWORD target, size_t size) {
 	return true;
 }
 
-typedef void(__stdcall* LoadMaps)(char* path, void* param2);
-LoadMaps ldmaps_org = nullptr;
-typedef DWORD32* (__thiscall* MapDropdown)(void* tis, int param1);
-MapDropdown mpdrp_org = nullptr;
-typedef void(__stdcall* DropDownAdd)(int param1);
-DropDownAdd drpadd_org = nullptr;
-
-//we keep our own list of maps for each folder, so we can set the list to what ever we want
-/*class MapLoader {
-private:
-	struct MapAddr {
-		DWORD32 addr; //actual data addr
-		size_t g_index; //game index
-		std::string path; //file path
-	};
-
-	DWORD offset;
-	DWORD32 campaign_maps;
-	std::vector<MapAddr> map_lists;
-public:
-	MapLoader() {
-		offset = 0;
-		campaign_maps = 0;
-	}
-	MapLoader(DWORD base) {
-		offset = base + 0xf357a0;
-		campaign_maps = *((DWORD32*)*((DWORD32*)offset)) + 0x0;
-	}
-	~MapLoader() {
-		for (auto& i : map_lists) {
-			std::free((void*)i.addr);
-		}
-	}
-	size_t generateMapList(std::string file_path, size_t g_index) {
-		void* dat = std::malloc(100); //no idea how big this has to be
-		DWORD32 t = (DWORD32)dat; //can't use the default map list since it seems to already have it packed tight
-		char* d = (char*)t;
-		*(DWORD32*)(t + 0x48) = 0;
-		//this works now?
-		ldmaps_org((char*)file_path.c_str(), (void*)t); //figure out why we get ntl error here, probably arguments
-
-
-		DWORD32* tp = mpdrp_org((d + 4), (int)(d + 4)); //begin pointer
-		//loop to set drop down buttons?
-		for (DWORD32* i = tp; i != (DWORD32*)(d + 0x4); i += 0x1eb) {
-			//do the map cleanupread function
-			drpadd_org((int)i);
-		}
-		//(DWORD32*)(t + 4) = tp;
-		map_lists.push_back({ t, g_index, file_path });
-		return map_lists.size() - 1;
-	}
-	DWORD32 getMapList(std::string name) {
-
-	}
-	DWORD32 __cdecl getMapList(size_t game) {
-		for (auto& i : map_lists) {
-			if (i.g_index == game) {
-				return i.addr;
-			}
-		}
-		DWORD32 t = 0;
-		if (g_ffa == 0 && g_tffa == 0) {
-			char* data;
-			__asm {
-				push edx;
-				mov edx, dword ptr[campaign_maps];
-				add edx, 0xc;
-				mov data, edx;
-				mov t, edx;
-				pop edx;
-			}
-		}
-		else {
-			__asm {
-				push edx;
-				mov edx, dword ptr[campaign_maps];
-				add edx, 0x3c;
-				mov t, edx;
-				pop edx;
-			}
-		}
-
-		return t;
-	}
-
-
-};
-*/
-
 
 struct Mode {
 	int ffa;
 	int t_ffa;
+	bool verify;
 };
 typedef Mode* ModeP;
 
@@ -200,6 +111,19 @@ private:
 		}
 		return str;
 	}
+
+	bool getVerify(std::string line) {
+		size_t pos = line.find("verify:");
+		pos += 7;
+		std::string str;
+		for (pos; pos < line.size() && line[pos] != ';'; pos++) {
+			if (line[pos] != ' ' && line[pos] != '\t') {
+				str.push_back(line[pos]);
+			}
+		}
+		bool r = str.compare("true") == 0;
+		return r;
+	}
 public:
 	
 	GamemodeMap() {
@@ -207,10 +131,11 @@ public:
 			lookup.push_back({ 0, 0});
 		}
 	}
-	void insert(size_t index, int ffa, int t_ffa) {
+	void insert(size_t index, int ffa, int t_ffa, bool verify) {
 		if (index < lookup.size()) {
 			lookup[index].ffa = ffa;
 			lookup[index].t_ffa = t_ffa;
+			lookup[index].verify = verify;
 		}
 	}
 	Mode getMode(size_t index) {
@@ -224,7 +149,7 @@ public:
 		file.open(path);
 		std::string line;
 		while (getline(file, line)) {
-			insert(getIndex(line), getFFA(line), getTFFA(line));
+			insert(getIndex(line), getFFA(line), getTFFA(line), getVerify(line));
 		}
 		file.close();
 	}

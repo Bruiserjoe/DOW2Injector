@@ -3,6 +3,8 @@
 
 //0x004132DA is causing crash on skirmish load
 
+//think the shit crashes on clicking spacehulkannihialteteamffa because address is fucked??
+
 typedef void(__cdecl* Timestampedf)(const char*, ...);
 typedef void(__cdecl* Fatalf)(const char*, ...);
 
@@ -87,6 +89,7 @@ struct MapAddr {
 DWORD offset_1;
 DWORD32 campaign_maps = 0;
 std::vector<MapAddr> map_lists;
+std::vector<MapAddr> unique_map_lists;
 
 
 extern "C" DWORD32 getMapList() {
@@ -196,7 +199,6 @@ void __declspec(naked) ReplaceAddr() {
 
 // map loading
 
-// move this back into gamemode patch eventually
 // two new detours which increase size of memory allocated and then load the map lists into the newly created space
 
 std::string getList(std::string line) {
@@ -246,6 +248,16 @@ void readListConfig(std::string path) {
         std::string list = getList(line);
         if (list.compare("default") != 0) {
             map_lists.push_back({ getIndex(line), list });
+            bool not_unique = false;
+            for (auto& i : unique_map_lists) {
+                if (i.path.compare(list) == 0) {
+                    not_unique = true;
+                    break;
+                }
+            }
+            if (!not_unique) {
+                unique_map_lists.push_back({ getIndex(line), list });
+            }
             gamemodepatch_maps_count++;
             // Timestampedtracef("GAMEMODE PATCH: Successfully created new map list!");
         }
@@ -280,7 +292,7 @@ void __declspec(naked) detourMapAlloc() {
 DWORD32 jmpback_detourMapVecAlloc = 0;
 DWORD32 numberofmap_lists = 0;
 void __declspec(naked) detourMapVecAlloc() {
-    numberofmap_lists = 6 + map_lists.size();
+    numberofmap_lists = 6 + unique_map_lists.size();
     __asm {
         push numberofmap_lists;
         push 0x0C;
@@ -290,17 +302,58 @@ void __declspec(naked) detourMapVecAlloc() {
 }
 
 DWORD32 gamemodepatch_map_start = 0;
+
+typedef void(__stdcall* LoadMaps)(char* path, void* param2);
+LoadMaps LoadMapFolder = nullptr;
+DWORD32 MapListCopy = 0;
+typedef void(__stdcall* MapListFreeSmth)(int a1);
+MapListFreeSmth MapListFree = nullptr;
+DWORD32 MapListVerify = 0;
+DWORD32 MapListFix = 0;
+
+
 extern "C" void loadMapList() {
     size_t start = 0x4C + 4;
-    for (auto& i : map_lists) {
-        ldmaps_org((char*)i.path.c_str(), (void*)(gamemodepatch_map_start + start));
+    for (auto& i : unique_map_lists) {
+        LoadMapFolder((char*)i.path.c_str(), (void*)(gamemodepatch_map_start + start));
         char* d = ((char*)(gamemodepatch_map_start + start));
-        DWORD32* tp = mpdrp_org((d + 4), (int)(d + 4)); //begin pointer
-        //loop to set drop down buttons?
-        for (DWORD32* i = tp; i != (DWORD32*)(d + 0x4); i += 0x1eb) {
-            //do the map cleanupread function
-            drpadd_org((int)i);
+        DWORD32* dd = (DWORD32*)(d + 4);
+        if (map.getMode(i.g_index).verify) {
+            DWORD32* re;
+            DWORD32* rr;
+            __asm {
+                mov eax, d;
+                mov edi, dd;
+                mov ecx, rr;
+                push ecx;
+                call MapListVerify;
+                mov re, eax;
+            }
+            if (re != dd) {
+                __asm {
+                    mov edx, rr;
+                    push edx;
+                    push edi;
+                    lea ecx, [eax + 1964];
+                    call MapListFix;
+                }
+            }
+
         }
+        DWORD32* tp = 0;
+        __asm {
+            mov ecx, dd;
+            push ecx;
+            mov eax, ecx;
+            call MapListCopy;
+            mov tp, eax;
+        }
+        //loop to set drop down buttons?
+        for (DWORD32 i = (DWORD32)tp; i != (DWORD32)(dd); i += 1964) {
+            //do the map cleanupread function
+            MapListFree((int)i);
+        }
+        // *(dd) = (DWORD32)tp;
         start += 12;
     }
 }
@@ -309,13 +362,22 @@ DWORD32 jmpback_detourMapLoad = 0;
 // detour to load new map lists into our expanded memory
 void __declspec(naked) detourMapLoad() {
     __asm {
-        call ldmaps_org;
+        call LoadMapFolder;
         mov eax, DWORD PTR[ebp + 0x0];
         mov gamemodepatch_map_start, eax;
     }
     loadMapList();
     __asm {
         jmp[jmpback_detourMapLoad];
+    }
+}
+
+DWORD32 jmpback_detourMapLoadEndLoop = 0;
+void __declspec(naked) detourMapLoadEndLoop() {
+    __asm {
+        add ebx, 1;
+        cmp ebx, numberofmap_lists;
+        jmp[jmpback_detourMapLoadEndLoop];
     }
 }
 
@@ -351,11 +413,19 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         jmpback_detourMapVecAlloc = base + 0x7A36C9;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), (DWORD)detourMapVecAlloc, 5);
         jmpback_detourMapLoad = base + 0x7A36F0;
+        //jmpback_detourMapLoad = base + 0x7A38E8;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A36EB), (DWORD)detourMapLoad, 5);
+
+        // detouring the end of mapLoad cause it has a loop for six map lists when we should be doing all the new ones too
+        jmpback_detourMapLoadEndLoop = base + 0x7A3931;
+        // JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A392B), (DWORD)detourMapLoadEndLoop, 6);
+
         //original functions for map stuff
-        ldmaps_org = reinterpret_cast<LoadMaps>(base + 0x7a42d0);
-        mpdrp_org = reinterpret_cast<MapDropdown>(base + 0x7c351);
-        drpadd_org = reinterpret_cast<DropDownAdd>(base + 0x7a2a20);
+        LoadMapFolder = reinterpret_cast<LoadMaps>(base + 0x7a42d0);
+        MapListFree = reinterpret_cast<MapListFreeSmth>(base + 0x7A2A20);
+        MapListCopy = base + 0x7C351;
+        MapListVerify = base + 0x7A5E20;
+        MapListFix = base + 0x7A5B40;
 
         map = GamemodeMap();
         jmpback_setGamemodeHook = base + 0x882FA;

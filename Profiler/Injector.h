@@ -32,8 +32,8 @@ extern Fatalf Fatal_f;
     // -scripts for converting file types to dow 2 file types
     // -merge rust patch (https://github.com/RipleyTom/rustpatch)
     // -fix crashes on gamemode patch
-    // -    think maybe is from mscvp versions being different?? I think I'm doing everything right otherwise
-    // -    copy map list loading more closely!
+    // -    think maybe is from mscvp versions being different?? I think I'm doing everything right otherwise - compiling with vs2005 does not fix crash
+    // -    copy map list loading more closely! - this is the path probably??
     // -change how cullsphere patch works, rip out algorithm solver, just add options for max curve etc X
     // -add networking patch (connect to custom relicnet/lobby server)
     // -stable release version of reversed relicnet server
