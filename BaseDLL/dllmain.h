@@ -40,8 +40,8 @@ bool JmpPatch(BYTE* dst, DWORD target, size_t size) {
 
 
 struct Mode {
-	int ffa;
-	int t_ffa;
+	BYTE ffa;
+	BYTE t_ffa;
 	bool verify;
 };
 typedef Mode* ModeP;
@@ -49,13 +49,8 @@ typedef Mode* ModeP;
 //map generated on startup being read from the config file 
 class GamemodeMap {
 private:
-	std::vector<Mode> lookup;
 
-	//dont hash anything above or equal to 100 or else we will have collisions. But whos gonna add enough for that? So should be fine
-	size_t hash(size_t index) {
-		return index % 100;
-	}
-	size_t getIndex(std::string line) {
+	static size_t getIndex(std::string line) {
 		size_t i;
 		std::string parse;
 		for (i = 0; i < line.size() && line[i] != ':'; i++) {
@@ -64,7 +59,7 @@ private:
 		i = std::stoi(parse);
 		return i;
 	}
-	int getFFA(std::string line) {
+	static int getFFA(std::string line) {
 		size_t pos = line.find("ffa:");
 		pos += 5;
 		std::string ans;
@@ -80,7 +75,7 @@ private:
 			return 0;
 		}
 	}
-	int getTFFA(std::string line) {
+	static int getTFFA(std::string line) {
 		size_t pos = line.find("tffa:");
 		pos += 6;
 		std::string ans;
@@ -97,7 +92,7 @@ private:
 		}
 	}
 	//gets the map list from the config file
-	std::string getList(std::string line) {
+	static std::string getList(std::string line) {
 		size_t pos = line.find("list:");
 		pos += 5;
 		std::string str;
@@ -112,7 +107,7 @@ private:
 		return str;
 	}
 
-	bool getVerify(std::string line) {
+	static bool getVerify(std::string line) {
 		size_t pos = line.find("verify:");
 		pos += 7;
 		std::string str;
@@ -124,32 +119,20 @@ private:
 		bool r = str.compare("true") == 0;
 		return r;
 	}
+	static void insert(size_t index, int ffa, int t_ffa, bool verify, Mode map[100]) {
+		if (index < 100) {
+			map[index].ffa = ffa;
+			map[index].t_ffa = t_ffa;
+			map[index].verify = verify;
+		}
+	}
 public:
-	
-	GamemodeMap() {
-		for (size_t i = 0; i < 100; i++) {
-			lookup.push_back({ 0, 0});
-		}
-	}
-	void insert(size_t index, int ffa, int t_ffa, bool verify) {
-		if (index < lookup.size()) {
-			lookup[index].ffa = ffa;
-			lookup[index].t_ffa = t_ffa;
-			lookup[index].verify = verify;
-		}
-	}
-	Mode getMode(size_t index) {
-		if (index < lookup.size()) {
-			return lookup[index];
-		}
-		return {0, 0};
-	}
-	void readConfig(std::string path) {
+	static void readConfig(std::string path, Mode map[100]) {
 		std::ifstream file;
 		file.open(path);
 		std::string line;
 		while (getline(file, line)) {
-			insert(getIndex(line), getFFA(line), getTFFA(line), getVerify(line));
+			insert(getIndex(line), getFFA(line), getTFFA(line), getVerify(line), map);
 		}
 		file.close();
 	}

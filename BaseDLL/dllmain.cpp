@@ -23,17 +23,13 @@ DWORD base;
 HMODULE plat;
 HMODULE debug;
 DWORD slots_addr;
-char g_ffa = 0;
-char g_tffa = 0;
-
 size_t cur_index = 0;
 
 //returns a pointer of some kind
 typedef DWORD32* (__thiscall* setGamemode)(DWORD32 index, DWORD32* address, char* a_struct);
 setGamemode setgame_target = reinterpret_cast<setGamemode>(0x004882c6); //function before hook
 
-GamemodeMap map;
-
+Mode map[100];
 //Exception thrown at 0x00488164 in DOW2.exe: 0xC0000005: Access violation reading location 0x3E70F050.
 //caused by wrong handling of parameters
 
@@ -45,33 +41,42 @@ GamemodeMap map;
 //https://guidedhacking.com/threads/introduction-to-calling-conventions-for-beginners.20041/
 // https://www.tripwire.com/state-of-security/ghidra-101-creating-structures-in-ghidra
 
-Mode cur_mode;
 
 
 DWORD32 jmpback_setGamemodeHook = 0;
-BYTE* gamemodePtr = nullptr;
 DWORD32 weirdGamemode = 0;
-extern "C" void setMode() {
-    cur_mode = map.getMode(cur_index);
-    g_ffa = cur_mode.ffa;
-    g_tffa = cur_mode.t_ffa;
-    *(gamemodePtr + 0x5b) = g_ffa;
-    *(gamemodePtr + 0x5c) = g_tffa;
-}
+BYTE* gamemodePtr = nullptr;
+
+size_t t = 0;
 void __declspec(naked) setGamemodeHook() {
+    t = sizeof(Mode);
     __asm {
+        push edi;
+        push ebx;
         mov cur_index, ecx;
-        mov gamemodePtr, eax;
-        //mov edx, DWORD PTR[esp + 0x4];
-        //mov[weirdGamemode], edx;
-    }
-    //cur_mode = map.getMode(cur_index);
-    setMode();
-    //*(DWORD32*)(gamemodePtr + 0x50) = weirdGamemode;
-    //*(DWORD32*)(gamemodePtr + 0x54) = cur_index;
-    __asm {
+        //mov gamemodePtr, eax;
+        cmp ecx, 100;
+        jnb skip_gamemode;
+        mov edi, map;
+        imul ebx, ecx, 0x3;
+        add edi, ebx;
+        xor ebx, ebx;
+        mov bl, byte ptr[edi];
+        mov bh, byte ptr[edi + 0x1];
+        mov byte ptr[eax + 0x5B], bl;
+        mov byte ptr[eax + 0x5C], bh;
+    skip_gamemode:
+        pop ebx;
+        pop edi;
         jmp[jmpback_setGamemodeHook];
     }
+  /* if (cur_index < 100 && gamemodePtr) {
+        *(gamemodePtr + 0x5b) = map[cur_index].ffa;
+        *(gamemodePtr + 0x5c) = map[cur_index].t_ffa;
+    }
+    __asm {
+        jmp[jmpback_setGamemodeHook];
+    }*/
 }
 
 
@@ -140,7 +145,7 @@ void __declspec(naked) ReplaceAddr() {
         }
     }
     else {
-        if (g_ffa == 0 && g_tffa == 0) {
+        if (map[cur_index].ffa == 0 && map[cur_index].t_ffa == 0) {
             __asm {
                 push edx;
                 mov edx, dword ptr[campaign_maps];
@@ -213,7 +218,7 @@ size_t getIndex(std::string line) {
 
 typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
 PlatGetOption plat_getoption = nullptr;
-
+DWORD32 numberofmap_lists = 6;
 void readListConfig(std::string path) {
     std::ifstream file;
     file.open(path);
@@ -237,11 +242,18 @@ void readListConfig(std::string path) {
             if (!not_unique) {
                 unique_map_lists.push_back({ getIndex(line), list });
                 gamemodepatch_maps_count++;
+                numberofmap_lists++;
             }
             // Timestampedtracef("GAMEMODE PATCH: Successfully created new map list!");
         }
     }
     gamemodepatch_maps_count = 0x48 + (gamemodepatch_maps_count * 12) + 4;
+    BYTE ss[3] = { '\x83', '\xFB', '\x06' };
+    ss[2] = numberofmap_lists;
+    MemPatch(reinterpret_cast<BYTE*>(base + 0x7A392E), ss, 3);
+    BYTE ss2[2] = { '\x6A', '\x06' };
+    ss[1] = numberofmap_lists;
+    MemPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), ss2, 2);
     file.close();
 }
 char mod1[0x200];
@@ -252,7 +264,7 @@ extern "C" void readMapList() {
     modu = std::string(mod1);
     modu = modu + ".gamemodes";
     readListConfig(modu);
-    map.readConfig(modu);
+    GamemodeMap::readConfig(modu, map);
 }
 
 DWORD32 jmpback_detourMapAlloc = 0;
@@ -269,9 +281,7 @@ void __declspec(naked) detourMapAlloc() {
 }
 
 DWORD32 jmpback_detourMapVecAlloc = 0;
-DWORD32 numberofmap_lists = 0;
 void __declspec(naked) detourMapVecAlloc() {
-    numberofmap_lists = 6 + unique_map_lists.size();
     __asm {
         push numberofmap_lists;
         push 0x0C;
@@ -298,7 +308,7 @@ extern "C" void loadMapList() {
         LoadMapFolder((char*)i.path.c_str(), (void*)(gamemodepatch_map_start + start));
         char* d = ((char*)(gamemodepatch_map_start + start));
         DWORD32* dd = (DWORD32*)(d + 4);
-        if (map.getMode(i.g_index).verify) {
+        if (map[i.g_index].verify) {
             DWORD32* re;
             DWORD32* rr;
             __asm {
@@ -342,15 +352,63 @@ extern "C" void loadMapList() {
 }
 
 DWORD32 jmpback_detourMapLoad = 0;
+size_t mapOffsetStart = 0x48;
 // detour to load new map lists into our expanded memory
 void __declspec(naked) detourMapLoad() {
     __asm {
-        //call LoadMapFolder;
-        mov[esi + 0x40], ebx;
+        mov [esi + 0x40], ebx;
         mov eax, DWORD PTR[ebp + 0x0];
         mov gamemodepatch_map_start, eax;
     }
-    loadMapList();
+    for (size_t i = 0; i < numberofmap_lists - 6; i++) {
+        LoadMapFolder((char*)unique_map_lists[i].path.c_str(), (void*)(gamemodepatch_map_start + mapOffsetStart));
+        /*
+        if (map[unique_map_lists[i].g_index].verify) {
+            DWORD32* re;
+            DWORD32* rr;
+            __asm {
+                mov eax, d;
+                mov edi, dd;
+                mov ecx, rr;
+                push ecx;
+                call MapListVerify;
+                mov re, eax;
+            }
+            if (re != dd) {
+                __asm {
+                    mov edx, rr;
+                    push edx;
+                    push edi;
+                    lea ecx, [eax + 1964];
+                    call MapListFix;
+                }
+            }
+
+        }*/
+        __asm {
+            mov ecx, [gamemodepatch_map_start];
+            add ecx, [mapOffsetStart];
+            add ecx, 0x4;
+            mov edi, ecx;
+            push ecx;
+            mov eax, ecx;
+            call MapListCopy;
+            mov ecx, edi;
+            mov edi, eax;
+            cmp edi, ecx;
+            jz map_free_skip;
+            mov ebx, eax;
+        map_free_loop:
+            push ebx;
+            call MapListFreeSimple;
+            add ebx, 0x7AC;
+            cmp ebx, ecx;
+            jnz map_free_loop;
+        map_free_skip:
+            mov[ecx], edi;
+        }
+        mapOffsetStart += 12;
+    }
     __asm {
         xor ebx, ebx;
         jmp[jmpback_detourMapLoad];
@@ -388,22 +446,22 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 
 
         jmpbackaddr = (base + 0x86e58);
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x86e47), (DWORD)ReplaceAddr, 5);
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x86e53), (DWORD)ReplaceAddr, 5);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x86e47), (DWORD)ReplaceAddr, 5);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x86e53), (DWORD)ReplaceAddr, 5);
 
         // map detours, for gamemode patch
         jmpback_detourMapAlloc = base + 0x7A36A2;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A369A), (DWORD)detourMapAlloc, 8);
+        // JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A369A), (DWORD)detourMapAlloc, 8);
         // detour vector constructor to make sure the number of 
         jmpback_detourMapVecAlloc = base + 0x7A36C9;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), (DWORD)detourMapVecAlloc, 5);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), (DWORD)detourMapVecAlloc, 5);
         jmpback_detourMapLoad = base + 0x7A38EA;
         //jmpback_detourMapLoad = base + 0x7A38E8;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A38E5), (DWORD)detourMapLoad, 5);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A38E5), (DWORD)detourMapLoad, 5);
 
         // detouring the end of mapLoad cause it has a loop for six map lists when we should be doing all the new ones too
         jmpback_detourMapLoadEndLoop = base + 0x7A3931;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A392B), (DWORD)detourMapLoadEndLoop, 6);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A392B), (DWORD)detourMapLoadEndLoop, 6);
 
         //original functions for map stuff
         LoadMapFolder = reinterpret_cast<LoadMaps>(base + 0x7a42d0);
@@ -412,8 +470,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         MapListCopy = base + 0x7C351;
         MapListVerify = base + 0x7A5E20;
         MapListFix = base + 0x7A5B40;
+        
 
-        map = GamemodeMap();
+        GamemodeMap::readConfig("DOW2Codex.gamemodes", map);
         jmpback_setGamemodeHook = base + 0x882F0;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x882C6), (DWORD)setGamemodeHook, 5);
 
