@@ -53,7 +53,7 @@ void __declspec(naked) setGamemodeHook() {
         mov [cur_index], ecx;
         cmp ecx, 100;
         jnb zero_gamemode;
-        mov edi, dword ptr ds:[g_map];
+        mov edi, dword ptr ds:[g_map]; //thx chatgpt
         imul edx, ecx, 0x3;
         add edi, edx;
         xor edx, edx;
@@ -97,13 +97,17 @@ GamemodeChange gc = reinterpret_cast<GamemodeChange>(0x00486f6a);
 
 struct MapAddr {
     size_t g_index; //game index
-    std::string path; //file path
+    const char* path; //file path
 };
 
 DWORD offset_1;
 DWORD32 campaign_maps = 0;
-std::vector<MapAddr> map_lists;
-std::vector<MapAddr> unique_map_lists;
+size_t map_size = 0;
+MapAddr map_lists[100];
+DWORD32 numberofmap_lists = 6;
+MapAddr* un_map_lists_ptr = nullptr;
+MapAddr unique_map_lists[100];
+std::vector<std::string> string_ptrs;
 
 DWORD jmpbackaddr;
 DWORD32 cur_map_list_offset = 0;
@@ -116,7 +120,7 @@ void __declspec(naked) ReplaceAddr() {
         }
     }
     cur_map_list_offset = 0;
-    for (size_t i = 0; i < map_lists.size(); i++) {
+    for (size_t i = 0; i < map_size; i++) {
         if (map_lists[i].g_index == cur_index) {
             __asm {
                 mov edx, dword ptr[campaign_maps];
@@ -124,8 +128,8 @@ void __declspec(naked) ReplaceAddr() {
                 //add edx, 4;
                 mov cur_map_list_offset, edx;
             }
-            for (size_t j = 0; j < unique_map_lists.size(); j++) {
-                if (map_lists[i].path.compare(unique_map_lists[j].path) == 0) {
+            for (size_t j = 0; j < numberofmap_lists; j++) {
+                if (strcmp(map_lists[i].path, unique_map_lists[j].path) == 0) {
                     cur_map_list_offset += (j * 12);
                     break;
                 }
@@ -213,7 +217,6 @@ size_t getIndex(std::string line) {
 
 typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
 PlatGetOption plat_getoption = nullptr;
-DWORD32 numberofmap_lists = 6;
 void readListConfig(std::string path) {
     std::ifstream file;
     file.open(path);
@@ -226,29 +229,34 @@ void readListConfig(std::string path) {
     while (getline(file, line)) {
         std::string list = getList(line);
         if (list.compare("default") != 0) {
-            map_lists.push_back({ getIndex(line), list });
+            string_ptrs.push_back(list);
+            map_lists[count] = { getIndex(line), string_ptrs[string_ptrs.size() - 1].c_str()};
             bool not_unique = false;
-            for (auto& i : unique_map_lists) {
-                if (i.path.compare(list) == 0) {
+            for (size_t i = 0; i < gamemodepatch_maps_count; i++) {
+                if (strcmp(unique_map_lists[i].path, list.c_str()) == 0) {
                     not_unique = true;
                     break;
                 }
             }
             if (!not_unique) {
-                unique_map_lists.push_back({ getIndex(line), list });
+                map_lists[count] = { getIndex(line), list.c_str() };
+                unique_map_lists[gamemodepatch_maps_count] = {getIndex(line), string_ptrs[string_ptrs.size() - 1].c_str() };
                 gamemodepatch_maps_count++;
                 numberofmap_lists++;
             }
+            count++;
             // Timestampedtracef("GAMEMODE PATCH: Successfully created new map list!");
         }
     }
+    map_size = count;
     gamemodepatch_maps_count = 0x48 + (gamemodepatch_maps_count * 12) + 4;
-    BYTE ss[3] = { '\x83', '\xFB', '\x06' };
+    BYTE ss[3] = { (BYTE)'\x83', (BYTE)'\xFB', (BYTE)'\x06' };
     ss[2] = numberofmap_lists;
-    MemPatch(reinterpret_cast<BYTE*>(base + 0x7A392E), ss, 3);
-    BYTE ss2[2] = { '\x6A', '\x06' };
-    ss[1] = numberofmap_lists;
+    //MemPatch(reinterpret_cast<BYTE*>(base + 0x7A392E), ss, 3);
+    BYTE ss2[2] = { (BYTE)'\x6A', (BYTE)'\x06' };
+    ss2[1] = numberofmap_lists;
     MemPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), ss2, 2);
+    numberofmap_lists = numberofmap_lists - 6;
     file.close();
 }
 char mod1[0x200];
@@ -300,7 +308,7 @@ DWORD32 MapListFreeSimple = 0;
 extern "C" void loadMapList() {
     size_t start = 0x48;
     for (auto& i : unique_map_lists) {
-        LoadMapFolder((char*)i.path.c_str(), (void*)(gamemodepatch_map_start + start));
+        LoadMapFolder((char*)i.path, (void*)(gamemodepatch_map_start + start));
         char* d = ((char*)(gamemodepatch_map_start + start));
         DWORD32* dd = (DWORD32*)(d + 4);
         if (map[i.g_index].verify) {
@@ -352,59 +360,44 @@ size_t mapOffsetStart = 0x48;
 void __declspec(naked) detourMapLoad() {
     __asm {
         mov [esi + 0x40], ebx;
-        mov eax, DWORD PTR[ebp + 0x0];
-        mov gamemodepatch_map_start, eax;
-    }
-    for (size_t i = 0; i < numberofmap_lists - 6; i++) {
-        LoadMapFolder((char*)unique_map_lists[i].path.c_str(), (void*)(gamemodepatch_map_start + mapOffsetStart));
-        /*
-        if (map[unique_map_lists[i].g_index].verify) {
-            DWORD32* re;
-            DWORD32* rr;
-            __asm {
-                mov eax, d;
-                mov edi, dd;
-                mov ecx, rr;
-                push ecx;
-                call MapListVerify;
-                mov re, eax;
-            }
-            if (re != dd) {
-                __asm {
-                    mov edx, rr;
-                    push edx;
-                    push edi;
-                    lea ecx, [eax + 1964];
-                    call MapListFix;
-                }
-            }
-
-        }*/
-        __asm {
-            mov ecx, [gamemodepatch_map_start];
-            add ecx, [mapOffsetStart];
-            add ecx, 0x4;
-            mov edi, ecx;
-            push ecx;
-            mov eax, ecx;
-            call MapListCopy;
-            mov ecx, edi;
-            mov edi, eax;
-            cmp edi, ecx;
-            jz map_free_skip;
-            mov ebx, eax;
-        map_free_loop:
-            push ebx;
-            call MapListFreeSimple;
-            add ebx, 0x7AC;
-            cmp ebx, ecx;
-            jnz map_free_loop;
-        map_free_skip:
-            mov[ecx], edi;
-        }
-        mapOffsetStart += 12;
-    }
-    __asm {
+        mov edi, DWORD PTR[ebp + 0x0];
+        //mov gamemodepatch_map_start, eax;
+        add edi, [mapOffsetStart]; //the current address
+        xor ebx, ebx; // the index into map lists
+    load_map_loop:
+        cmp ebx, [numberofmap_lists];
+        jge exit_loop;
+        imul ecx, ebx, 0x8; // get offset into uniq list
+        mov eax, dword ptr ds : [un_map_lists_ptr] ; // map list ptr
+        add ecx, eax;
+        add ecx, 0x4; // get char str ptr
+        push edi;
+        push ecx;
+        call LoadMapFolder;
+        mov ecx, edi;
+        add ecx, 0x4;
+        push ecx;
+        mov eax, ecx;
+        call MapListCopy;
+        mov ecx, eax;
+        mov eax, edi;
+        add eax, 0x4;
+        cmp ecx, eax;
+        jz skip_free_loop;
+        // now second loop!
+        mov edx, ecx;
+    free_loop:
+        push edx;
+        call MapListFree;
+        add edx, 0x7AC;
+        cmp edx, eax;
+        jnz free_loop;
+    skip_free_loop:
+        mov[edi + 0x4], ecx;
+        add ebx, 0x1;
+        add edi, 0x12;
+        jmp load_map_loop;
+    exit_loop:
         xor ebx, ebx;
         jmp[jmpback_detourMapLoad];
     }
@@ -446,13 +439,12 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 
         // map detours, for gamemode patch
         jmpback_detourMapAlloc = base + 0x7A36A2;
-        // JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A369A), (DWORD)detourMapAlloc, 8);
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A369A), (DWORD)detourMapAlloc, 8);
         // detour vector constructor to make sure the number of 
         jmpback_detourMapVecAlloc = base + 0x7A36C9;
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), (DWORD)detourMapVecAlloc, 5);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), (DWORD)detourMapVecAlloc, 5); mempatch now buddy!
         jmpback_detourMapLoad = base + 0x7A38EA;
-        //jmpback_detourMapLoad = base + 0x7A38E8;
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A38E5), (DWORD)detourMapLoad, 5);
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A38E5), (DWORD)detourMapLoad, 5);
 
         // detouring the end of mapLoad cause it has a loop for six map lists when we should be doing all the new ones too
         jmpback_detourMapLoadEndLoop = base + 0x7A3931;
@@ -469,6 +461,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 
         GamemodeMap::readConfig("DOW2Codex.gamemodes", map);
         g_map = map;
+        un_map_lists_ptr = unique_map_lists;
         jmpback_setGamemodeHook = base + 0x882FA;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x882C6), (DWORD)setGamemodeHook, 5);
 
