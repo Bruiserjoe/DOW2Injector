@@ -30,6 +30,7 @@ typedef DWORD32* (__thiscall* setGamemode)(DWORD32 index, DWORD32* address, char
 setGamemode setgame_target = reinterpret_cast<setGamemode>(0x004882c6); //function before hook
 
 Mode map[100];
+extern "C" Mode* g_map = nullptr;
 //Exception thrown at 0x00488164 in DOW2.exe: 0xC0000005: Access violation reading location 0x3E70F050.
 //caused by wrong handling of parameters
 
@@ -47,36 +48,30 @@ DWORD32 jmpback_setGamemodeHook = 0;
 DWORD32 weirdGamemode = 0;
 BYTE* gamemodePtr = nullptr;
 
-size_t t = 0;
 void __declspec(naked) setGamemodeHook() {
-    t = sizeof(Mode);
     __asm {
-        push edi;
-        push ebx;
-        mov cur_index, ecx;
-        //mov gamemodePtr, eax;
+        mov [cur_index], ecx;
         cmp ecx, 100;
-        jnb skip_gamemode;
-        mov edi, map;
-        imul ebx, ecx, 0x3;
-        add edi, ebx;
-        xor ebx, ebx;
-        mov bl, byte ptr[edi];
-        mov bh, byte ptr[edi + 0x1];
-        mov byte ptr[eax + 0x5B], bl;
-        mov byte ptr[eax + 0x5C], bh;
+        jnb zero_gamemode;
+        mov edi, dword ptr ds:[g_map];
+        imul edx, ecx, 0x3;
+        add edi, edx;
+        xor edx, edx;
+        mov dl, byte ptr[edi];
+        mov dh, byte ptr[edi + 0x1];
+        mov byte ptr[eax + 0x5B], dl;
+        mov byte ptr[eax + 0x5C], dh;
+        jmp skip_gamemode;
+    zero_gamemode:
+        mov byte ptr[eax + 0x5B], 0x0;
+        mov byte ptr[eax + 0x5C], 0x0;
     skip_gamemode:
-        pop ebx;
-        pop edi;
+        mov edx, dword ptr[esp + 0x4];
+        mov[eax + 0x50], edx;
+        mov[eax + 0x54], ecx;
+        xor edi, edi;
         jmp[jmpback_setGamemodeHook];
     }
-  /* if (cur_index < 100 && gamemodePtr) {
-        *(gamemodePtr + 0x5b) = map[cur_index].ffa;
-        *(gamemodePtr + 0x5c) = map[cur_index].t_ffa;
-    }
-    __asm {
-        jmp[jmpback_setGamemodeHook];
-    }*/
 }
 
 
@@ -473,7 +468,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         
 
         GamemodeMap::readConfig("DOW2Codex.gamemodes", map);
-        jmpback_setGamemodeHook = base + 0x882F0;
+        g_map = map;
+        jmpback_setGamemodeHook = base + 0x882FA;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x882C6), (DWORD)setGamemodeHook, 5);
 
         // Timestampedtracef("GAMEMODE PATCH: Injection finish!");

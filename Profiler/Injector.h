@@ -23,6 +23,24 @@ extern Fatalf Fatal_f;
 //https://www.youtube.com/watch?v=KTS9Ujhqm6I
 //https://www.youtube.com/watch?v=mKUSLJjlajg
 
+//Relic DLLs left to be reversed
+//  -Localizer.dll
+//  -LuaConfig.dll
+//  -MathBox.dll
+//  -Memory.dll
+//  -Platoform.dll
+//  -Shark.dll
+//  -SimEngine.dll
+//  -Spooge.dll
+//  -STLPort.dll
+//  -Util.dll
+//  -XThread.dll
+//  -Bugsplat.dll
+//  -BugsplatRC.dll
+//  -Debug.dll
+//  -FileParser.dll
+//  -FileSystem.dll
+
 //curent todo 1.9
     // -fatalf from config file, IE check if the proper launch options are in use X
     // -borderless fullscreen patch 
