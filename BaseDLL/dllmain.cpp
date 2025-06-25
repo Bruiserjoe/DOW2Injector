@@ -268,7 +268,7 @@ void readListConfig(std::string path) {
     }
     std::string line;
     size_t count = 0;
-    DWORD32 cur_offset = 72;
+    DWORD32 cur_offset = 76;
     while (getline(file, line)) {
         std::string list = getList(line);
         if (list.compare("default") != 0) {
@@ -300,7 +300,7 @@ void readListConfig(std::string path) {
     // MemPatch(reinterpret_cast<BYTE*>(base + 0x7A392E), ss, 3);
     BYTE ss2[2] = { (BYTE)'\x6A', (BYTE)'\x06' };
     ss2[1] = numberofmap_lists;
-    MemPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), ss2, 2);
+    // MemPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), ss2, 2);
     numberofmap_lists = numberofmap_lists - 6;
     file.close();
 }
@@ -331,7 +331,7 @@ void __declspec(naked) detourMapAlloc() {
 DWORD32 jmpback_detourMapVecAlloc = 0;
 void __declspec(naked) detourMapVecAlloc() {
     __asm {
-        push numberofmap_lists;
+        push numberofmaps_total;
         push 0x0C;
         push esi;
         jmp[jmpback_detourMapVecAlloc];
@@ -342,6 +342,7 @@ DWORD32 gamemodepatch_map_start = 0;
 
 typedef void(__stdcall* LoadMaps)(char* path, void* param2);
 LoadMaps LoadMapFolder = nullptr;
+DWORD32 LoadMapFolderSimple = 0;
 DWORD32 MapListCopy = 0;
 typedef void(__stdcall* MapListFreeSmth)(int a1);
 MapListFreeSmth MapListFree = nullptr;
@@ -357,7 +358,7 @@ void __declspec(naked) detourMapLoad() {
         mov [esi + 0x40], ebx;
         mov edi, DWORD PTR[ebp + 0x0];
         //mov gamemodepatch_map_start, eax;
-        add edi, 0x48; //the current address
+        add edi, 0x4C; //the current address
         xor ebx, ebx; // the index into map lists
     load_map_loop:
         cmp ebx, [numberofmap_lists];
@@ -369,7 +370,7 @@ void __declspec(naked) detourMapLoad() {
         mov ecx, [ecx + 0x4];
         push edi;
         push ecx;
-        call LoadMapFolder;
+        call LoadMapFolderSimple;
         mov ecx, [edi + 0x4];
         push ecx;
         mov eax, ecx;
@@ -429,24 +430,23 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 
         jmpbackaddr_mapoffset = (base + 0x86E58);
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x86E36), (DWORD)ReplaceMapAddr, 0x1F);
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x86e47), (DWORD)ReplaceAddr, 5);
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x86e53), (DWORD)ReplaceAddr, 5);
 
         // map detours, for gamemode patch
         jmpback_detourMapAlloc = base + 0x7A36A2;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A369A), (DWORD)detourMapAlloc, 8);
         // detour vector constructor to make sure the number of 
         jmpback_detourMapVecAlloc = base + 0x7A36C9;
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), (DWORD)detourMapVecAlloc, 5); mempatch now buddy!
+        // JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), (DWORD)detourMapVecAlloc, 5);
         jmpback_detourMapLoad = base + 0x7A38EA;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A38E5), (DWORD)detourMapLoad, 5);
 
         // detouring the end of mapLoad cause it has a loop for six map lists when we should be doing all the new ones too
         jmpback_detourMapLoadEndLoop = base + 0x7A3931;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A392B), (DWORD)detourMapLoadEndLoop, 6);
+        // JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A392B), (DWORD)detourMapLoadEndLoop, 6);
 
         //original functions for map stuff
         LoadMapFolder = reinterpret_cast<LoadMaps>(base + 0x7a42d0);
+        LoadMapFolderSimple = base + 0x7a42d0;
         MapListFree = reinterpret_cast<MapListFreeSmth>(base + 0x7A2A20);
         MapListFreeSimple = (base + 0x7A2A20);
         MapListCopy = base + 0x7C351;

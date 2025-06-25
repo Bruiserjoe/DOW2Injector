@@ -24,30 +24,26 @@ extern Fatalf Fatal_f;
 //https://www.youtube.com/watch?v=mKUSLJjlajg
 
 //Relic DLLs left to be reversed
-//  -Localizer.dll
-//  -LuaConfig.dll
-//  -MathBox.dll
-//  -Memory.dll
-//  -Platoform.dll
-//  -Shark.dll
-//  -SimEngine.dll
-//  -Spooge.dll
-//  -STLPort.dll
-//  -Util.dll
-//  -XThread.dll
-//  -Bugsplat.dll
-//  -BugsplatRC.dll
-//  -Debug.dll
-//  -FileParser.dll
-//  -FileSystem.dll
+//  -Localizer.dll - 56 kb
+//  -LuaConfig.dll - 156 kb
+//  -MathBox.dll - 156 kb
+//  -Memory.dll - 68 kb
+//  -Platoform.dll - 96 kb
+//  -Shark.dll - 472 kb
+//  -SimEngine.dll - 584 kb
+//  -Spooge.dll - 672 kb
+//  -STLPort.dll - 504 kb
+//  -Util.dll - 324 kb
+//  -XThread.dll - 27 kb
+//  -Bugsplat.dll - 225 kb
+//  -BugsplatRC.dll - 64 kb
+//  -Debug.dll - 48 kb
+//  -FileParser.dll - 108 kb
+//  -FileSystem.dll - 269 kb
 
 //curent todo 1.9
     // -fatalf from config file, IE check if the proper launch options are in use X
     // -borderless fullscreen patch 
-    // -extend module file type so you don't need the seperate config files scattered all over the dow2 folder
-    // -multiple module loading, the top level loaded will overwrite anything loaded after it
-    // -new, more responsive tools for editing mod data
-    // -scripts for converting file types to dow 2 file types
     // -merge rust patch (https://github.com/RipleyTom/rustpatch)
     // -fix crashes on gamemode patch
     // -    think maybe is from mscvp versions being different?? I think I'm doing everything right otherwise - compiling with vs2005 does not fix crash
@@ -55,12 +51,12 @@ extern Fatalf Fatal_f;
     // -change how cullsphere patch works, rip out algorithm solver, just add options for max curve etc X
     // -add networking patch (connect to custom relicnet/lobby server)
     // -stable release version of reversed relicnet server
-    // -launcher (add game finder when server reversed)
     // -move all mods over to using timestampedf for error logging X
     // -immediate dll injection option X
 
 //current todo 1.9.1
     // -fix requistion point upgrades fucking up healthbar
+    // -launcher (add game finder when server reversed)
     //gamemode patch
         // -custom team layouts
         // -figure out how to make lobby size "infinite"
@@ -74,10 +70,15 @@ extern Fatalf Fatal_f;
 //current todo 2.0
     // -ui patch (add elements to any ui page, also create new ui pages)
     // -add lan back
+    // -new, more responsive tools for editing mod data
+    // -extend module file type so you don't need the seperate config files scattered all over the dow2 folder
+    // -multiple module loading, the top level loaded will overwrite anything loaded after it
+    // -scripts for converting file types to dow 2 file types
     // -performance patch 
         // -fix ui rendering being seperate draw calls
           //           -look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
          //              -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
+        // -sp::View::Begin/End
 
 
 
