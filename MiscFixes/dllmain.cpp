@@ -36,7 +36,6 @@ void __declspec(naked) MidStatsPopGenerate() {
     }
 }
 
-
 //look into resourcedecorator reveal function
 //400000
 //v5+23 is +num/icon decorator above node?
@@ -154,7 +153,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
                        LPVOID lpReserved
                      )
 {
-    BYTE* src = (BYTE*)"";
+    BYTE* src = (BYTE*)"\xEB";
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
@@ -164,6 +163,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x64CB8), (DWORD)MidStatsPopGenerate, 7); 
         //this jmppatch just jmps around 
         //the entire code which creates the ui element
+
+        // scaling patch
+        // https://github.com/RipleyTom/rustpatch
+        MemPatch(reinterpret_cast<BYTE*>(base + 0x77C1F0), src, 1);
 
         //testing for decorator
         jmpback_wrapper = base + 0x28200D;

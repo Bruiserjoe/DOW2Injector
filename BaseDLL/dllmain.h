@@ -42,7 +42,6 @@ bool JmpPatch(BYTE* dst, DWORD target, size_t size) {
 struct Mode {
 	BYTE ffa;
 	BYTE t_ffa;
-	bool verify;
 };
 typedef Mode* ModeP;
 
@@ -107,23 +106,10 @@ private:
 		return str;
 	}
 
-	static bool getVerify(std::string line) {
-		size_t pos = line.find("verify:");
-		pos += 7;
-		std::string str;
-		for (pos; pos < line.size() && line[pos] != ';'; pos++) {
-			if (line[pos] != ' ' && line[pos] != '\t') {
-				str.push_back(line[pos]);
-			}
-		}
-		bool r = str.compare("true") == 0;
-		return r;
-	}
-	static void insert(size_t index, int ffa, int t_ffa, bool verify, Mode map[100]) {
+	static void insert(size_t index, int ffa, int t_ffa, Mode map[100]) {
 		if (index < 100) {
 			map[index].ffa = ffa;
 			map[index].t_ffa = t_ffa;
-			map[index].verify = verify;
 		}
 	}
 public:
@@ -132,7 +118,7 @@ public:
 		file.open(path);
 		std::string line;
 		while (getline(file, line)) {
-			insert(getIndex(line), getFFA(line), getTFFA(line), getVerify(line), map);
+			insert(getIndex(line), getFFA(line), getTFFA(line), map);
 		}
 		file.close();
 	}

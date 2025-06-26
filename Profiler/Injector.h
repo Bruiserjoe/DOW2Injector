@@ -28,7 +28,7 @@ extern Fatalf Fatal_f;
 //  -LuaConfig.dll - 156 kb
 //  -MathBox.dll - 156 kb
 //  -Memory.dll - 68 kb
-//  -Platoform.dll - 96 kb
+//  -Platform.dll - 96 kb
 //  -Shark.dll - 472 kb
 //  -SimEngine.dll - 584 kb
 //  -Spooge.dll - 672 kb
@@ -44,10 +44,9 @@ extern Fatalf Fatal_f;
 //curent todo 1.9
     // -fatalf from config file, IE check if the proper launch options are in use X
     // -borderless fullscreen patch 
-    // -merge rust patch (https://github.com/RipleyTom/rustpatch)
-    // -fix crashes on gamemode patch
-    // -    think maybe is from mscvp versions being different?? I think I'm doing everything right otherwise - compiling with vs2005 does not fix crash
-    // -    copy map list loading more closely! - this is the path probably??
+    //  -probably modify the platform.dll to do this or decompile whole thing (psycho)
+    // -merge rust patch (https://github.com/RipleyTom/rustpatch) X
+    // -fix crashes on gamemode patch X
     // -change how cullsphere patch works, rip out algorithm solver, just add options for max curve etc X
     // -add networking patch (connect to custom relicnet/lobby server)
     // -stable release version of reversed relicnet server
@@ -79,6 +78,7 @@ extern Fatalf Fatal_f;
           //           -look into view class in spooge.dll - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bb318658(v=vs.85)
          //              -figure out what Device* + 0xf8 is, most likely main draw function, look in DrawOfSomeSort function
         // -sp::View::Begin/End
+        // -going to require spooge and simengine decomp tbh
 
 
 

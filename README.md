@@ -14,7 +14,8 @@ Fixes
 
 Gamemode Patch
 - Release comes packaged with an example config
-- The config file must be named gmd.cfg and be stored in the mods folder
+- GamemodePatch.dll must be in the list of immediate loads or will crash game
+- The config file must be named <module name>.cfg and be stored in the mods folder
 - Example member layout:
   - (index): ffa: false; tffa: true; list: default;
   - (index2): ffa: true; tffa: false; list: glorb;
@@ -49,3 +50,6 @@ Eight Player FFA Patch
 - Allows you to use eight player maps in ffa gamemodes
 - Player slots are a bit janky on eight player solo ffa, go to team ffa and create them and go back to solo ffa and they should be filled
 
+Misc Fixes Patch
+- Removes the race stats dropdown in skirmish games, this prevents crash from new races
+- Has scaling patch written by RipleyTom (https://github.com/RipleyTom/rustpatch)

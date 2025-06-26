@@ -49,8 +49,6 @@ extern "C" Mode* g_map = nullptr;
 
 
 DWORD32 jmpback_setGamemodeHook = 0;
-DWORD32 weirdGamemode = 0;
-BYTE* gamemodePtr = nullptr;
 
 void __declspec(naked) setGamemodeHook() {
     __asm {
@@ -58,7 +56,7 @@ void __declspec(naked) setGamemodeHook() {
         cmp ecx, 100;
         jnb zero_gamemode;
         mov edi, dword ptr ds:[g_map]; //thx chatgpt
-        imul edx, ecx, 0x3;
+        imul edx, ecx, 0x2;
         add edi, edx;
         xor edx, edx;
         mov dl, byte ptr[edi];
@@ -81,8 +79,6 @@ void __declspec(naked) setGamemodeHook() {
 
 //hook the function which edits the displayed gamemode value and save that string for use
 
-typedef void(__stdcall* GamemodeChange)();
-GamemodeChange gc = reinterpret_cast<GamemodeChange>(0x00486f6a);
 
 //recreate locstring so we can get the locstring value from ebp like in possiblegamemodestring
 
@@ -105,8 +101,6 @@ struct MapAddr {
     DWORD32 map_offset;
 };
 
-DWORD offset_1;
-DWORD32 campaign_maps = 0;
 size_t map_size = 0;
 MapAddr* map_lists_ptr = nullptr;
 MapAddr map_lists[100];
@@ -117,75 +111,6 @@ MapAddr unique_map_lists[100];
 std::string map_strings[100];
 
 DWORD jmpbackaddr_mapoffset;
-DWORD32 cur_map_list_offset = 0;
-void __declspec(naked) ReplaceAddr() {
-    if (campaign_maps == 0) {
-        offset_1 = base + 0xf357a0;
-        campaign_maps = *((DWORD32*)*((DWORD32*)offset_1)) + 0x0;
-        if (campaign_maps == 0) {
-            Fatal_f("GAMEMODE PATCH: FREAK THE FUCK OUT HOLY SHIT!");
-        }
-    }
-    cur_map_list_offset = 0;
-    for (size_t i = 0; i < map_size; i++) {
-        if (map_lists[i].g_index == cur_index) {
-            __asm {
-                mov edx, dword ptr[campaign_maps];
-                add edx, 0x48;
-                //add edx, 4;
-                mov cur_map_list_offset, edx;
-            }
-            for (size_t j = 0; j < numberofmap_lists; j++) {
-                if (strcmp(map_lists[i].path, unique_map_lists[j].path) == 0) {
-                    cur_map_list_offset += (j * 12);
-                    break;
-                }
-            }
-            // cur_map_list_offset += (i * 12); // this was causing crash lol! The i is off when we already loaded list (no it wasn't issue...)
-            break;
-        }
-    }
-    if (cur_map_list_offset != 0) {
-        __asm {
-            mov eax, cur_map_list_offset;
-        }
-    }
-    else {
-        if (map[cur_index].ffa == 0 && map[cur_index].t_ffa == 0) {
-            __asm {
-                push edx;
-                mov edx, dword ptr[campaign_maps];
-                add edx, 0xc;
-                mov eax, edx;
-                pop edx;
-            }
-        }
-        else {
-            __asm {
-                push edx;
-                mov edx, dword ptr[campaign_maps];
-                add edx, 0x3c;
-                mov eax, edx;
-                pop edx;
-            }
-        }
-    }
-    __asm {
-
-        //push esi;
-        //mov edx, dword ptr [offset_1];
-        //mov edx, dword ptr[edx];
-        //mov edx, dword ptr[edx];
-        //mov edx, dword ptr [campaign_maps]
-        // mov edx, pvp_maps;
-
-        //mov eax, edx;
-        //add eax, 0xc;
-        //mov esi, [ffa_maps];
-        //pop esi;
-        jmp[jmpbackaddr_mapoffset];
-    }
-}
 
 // map loading
 
@@ -295,12 +220,13 @@ void readListConfig(std::string path) {
     }
     map_size = count;
     gamemodepatch_maps_count = 0x48 + (gamemodepatch_maps_count * 12) + 4;
-    BYTE ss[3] = { (BYTE)'\x83', (BYTE)'\xFB', (BYTE)'\x06' };
+    // think the four bytes right after the first 72 are used for smth so fucking smth, so these are going unused
+    /*BYTE ss[3] = {(BYTE)'\x83', (BYTE)'\xFB', (BYTE)'\x06'};
     ss[2] = numberofmap_lists;
     // MemPatch(reinterpret_cast<BYTE*>(base + 0x7A392E), ss, 3);
     BYTE ss2[2] = { (BYTE)'\x6A', (BYTE)'\x06' };
     ss2[1] = numberofmap_lists;
-    // MemPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), ss2, 2);
+    // MemPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), ss2, 2);*/
     numberofmap_lists = numberofmap_lists - 6;
     file.close();
 }
@@ -436,14 +362,14 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A369A), (DWORD)detourMapAlloc, 8);
         // detour vector constructor to make sure the number of 
         jmpback_detourMapVecAlloc = base + 0x7A36C9;
-        // JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), (DWORD)detourMapVecAlloc, 5);
+        // JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), (DWORD)detourMapVecAlloc, 5); unstable
         jmpback_detourMapLoad = base + 0x7A38EA;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A38E5), (DWORD)detourMapLoad, 5);
 
         // detouring the end of mapLoad cause it has a loop for six map lists when we should be doing all the new ones too
         jmpback_detourMapLoadEndLoop = base + 0x7A3931;
-        // JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A392B), (DWORD)detourMapLoadEndLoop, 6);
-
+        // JmpPatch(reinterpret_cast<BYTE*>(base + 0x7A392B), (DWORD)detourMapLoadEndLoop, 6); unstable
+         
         //original functions for map stuff
         LoadMapFolder = reinterpret_cast<LoadMaps>(base + 0x7a42d0);
         LoadMapFolderSimple = base + 0x7a42d0;
@@ -454,7 +380,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         MapListFix = base + 0x7A5B40;
         
 
-        GamemodeMap::readConfig("DOW2Codex.gamemodes", map);
         g_map = map;
         un_map_lists_ptr = unique_map_lists;
         map_lists_ptr = map_lists;
