@@ -48,8 +48,8 @@ extern Fatalf Fatal_f;
     // -merge rust patch (https://github.com/RipleyTom/rustpatch) X
     // -fix crashes on gamemode patch X
     // -change how cullsphere patch works, rip out algorithm solver, just add options for max curve etc X
-    // -add networking patch (connect to custom relicnet/lobby server)
-    // -stable release version of reversed relicnet server
+    // -add networking patch (connect to custom relicnet/lobby server) 
+    // -stable release version of reversed relicnet server 
     // -move all mods over to using timestampedf for error logging X
     // -immediate dll injection option X
 
