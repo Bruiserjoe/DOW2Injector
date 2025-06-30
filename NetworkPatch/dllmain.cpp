@@ -7,6 +7,7 @@ typedef void(__cdecl* Fatalf)(const char*, ...);
 
 Timestampedf Timestampedtracef;
 Fatalf Fatal_f;
+WSAData wsa;
 
 DWORD32 jmpback_midConnect = 0;
 DWORD Net__Connect = 0;
@@ -27,6 +28,9 @@ void __declspec(naked) MidConnect() {
 // following rllinkasynchttp up
 // 0055919C
 // 0062DEC5
+
+// first connect
+// 00BCAFFF
 
 // Helper: Get remote IP from socket
 const char* GetRemoteIP(SOCKET s) {
@@ -93,15 +97,20 @@ connect_t original_connect = connect;
 
 int WINAPI my_connect(SOCKET s, const struct sockaddr* name, int namelen) {
     char ipStr[INET_ADDRSTRLEN] = { 0 };
-
+    struct sockaddr_in* addr_in = (struct sockaddr_in*)name;
+    sockaddr_in clientService;
+    clientService.sin_family = AF_INET;
+    InetPtonA(AF_INET, "127.0.0.1", &clientService.sin_addr.s_addr);
+    clientService.sin_port = addr_in->sin_port;
     if (name->sa_family == AF_INET) {
-        struct sockaddr_in* addr_in = (struct sockaddr_in*)name;
         inet_ntop(AF_INET, &(addr_in->sin_addr), ipStr, INET_ADDRSTRLEN);
         Timestampedtracef("[HOOKED connect] Connecting to IP: %s, Port: %d\n",
             ipStr, ntohs(addr_in->sin_port));
     }
-
-    return original_connect(s, name, namelen);
+    inet_ntop(AF_INET, &(clientService.sin_addr), ipStr, INET_ADDRSTRLEN);
+    Timestampedtracef("[HOOKED connect] Changing to IP: %s, Port: %d\n",
+        ipStr, ntohs(addr_in->sin_port));
+    return original_connect(s, (sockaddr*)&clientService, namelen);
 }
 
 typedef int(__thiscall* HttpRequestAsync_t)(DWORD_PTR dwContext);
@@ -136,6 +145,35 @@ int __stdcall MyWorldwideLoginServiceCtor(int a1, int a2)
     return result;
 }
 
+typedef int(__thiscall* CreateSocket_t)(void* _this, int a2, u_short hostshort, void* Src);
+CreateSocket_t OriginalCreateSocket = nullptr;
+int __fastcall DetourCreateSocket(void* _this, void* /*not used*/, int a2, u_short hostshort, void* Src) {
+    // Logging or modifying parameters
+    Timestampedtracef("[+] Hooked CreateSocket: a2 = %d, hostshort = %u\n", a2, hostshort);
+
+    // Optionally change parameters
+    // a2 = some_other_value;
+
+    // Call original
+    return OriginalCreateSocket(_this, a2, hostshort, Src);
+}
+
+
+// Typedef for the original function
+typedef int(__fastcall* sub_BCACE0_t)(SOCKET* a1, void* dummy, int a2, DWORD* a3);
+
+// Global pointer to the original
+sub_BCACE0_t Original_sub_BCACE0 = nullptr;
+
+// Detour implementation
+int __fastcall Hooked_sub_BCACE0(SOCKET* a1, void* /*not used*/, int a2, DWORD* a3) {
+    printf("[+] Hooked sub_BCACE0: SOCKET=%p, a2=%d, a3[0]=%08X\n", a1, a2, a3 ? a3[0] : 0);
+
+    // You can modify args here, or block the call, or log, etc.
+
+    return Original_sub_BCACE0(a1, nullptr, a2, a3);  // Call original
+}
+
 DWORD WINAPI MainThread(LPVOID param) {
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
@@ -144,6 +182,8 @@ DWORD WINAPI MainThread(LPVOID param) {
     DetourAttach(&(PVOID&)original_connect, my_connect);
     DetourAttach(&(PVOID&)original_ctor, MyWorldwideLoginServiceCtor);
     DetourAttach(&(PVOID&)real_recv, my_recv);
+    DetourAttach(&(PVOID&)OriginalCreateSocket, DetourCreateSocket);
+    //DetourAttach(&(PVOID&)Original_sub_BCACE0, Hooked_sub_BCACE0);
     //DetourAttach(&(PVOID&)TrueHttpRequestAsync, MyHttpRequestAsync);
     return DetourTransactionCommit() == NO_ERROR;
     return 0;
@@ -171,6 +211,12 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         Net__Connect = base + 0x258030;
         TrueHttpRequestAsync = reinterpret_cast<HttpRequestAsync_t>(base + 0x12E630);
         original_ctor = reinterpret_cast<WorldwideLoginServiceCtor_t>(base + 0x22A200);
+        Original_sub_BCACE0 = reinterpret_cast<sub_BCACE0_t>(base + 0x7CACE0);
+        OriginalCreateSocket = reinterpret_cast<CreateSocket_t>(base + 0x25B7C0);
+        if (WSAStartup(0x202u, &wsa))
+        {
+            Fatal_f("Failed wsa startup!");
+        }
         // JmpPatch(reinterpret_cast<BYTE*>(base + 0x23B610), (DWORD)MidConnect, 5);
         CreateThread(0, 0, MainThread, hModule, 0, 0);
         jmpback_midnetinit = base + 0x168AE;
