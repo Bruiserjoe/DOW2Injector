@@ -11,6 +11,7 @@ WSAData wsa;
 
 DWORD32 jmpback_midConnect = 0;
 DWORD Net__Connect = 0;
+std::string folder = "";
 void __declspec(naked) MidConnect() {
     __asm {
         call Net__Connect;
@@ -59,9 +60,51 @@ const char* GetRemoteIP(SOCKET s) {
     return "Unknown";
 }
 
+typedef int(__cdecl* sub_BC09F0_t)(DWORD* a1, DWORD* a2);
+sub_BC09F0_t original_sub_BC09F0 = nullptr;
+
+int __cdecl DetouredSub_BC09F0(DWORD* a1, DWORD* a2)
+{
+    // Your custom code here, e.g. logging or modifying the parameters
+    Timestampedtracef("[NETPATCH] BC09F0 hook!");
+
+    // Optionally, modify the parameters or perform custom behavior
+    // You can also call the original function if needed
+    const char* cc = (const char*)a1;
+    if (original_sub_BC09F0) {
+        return original_sub_BC09F0(a1, a2);  // Call the original function
+    }
+
+    // Custom behavior if you don’t want to call the original function
+    return 0;
+}
+
+
 typedef int (WINAPI* send_t)(SOCKET s, const char* buf, int len, int flags);
 send_t original_send = send;
 
+/*
+00BE184E
+00BFB7E4
+00BFB376
+00C11A1D
+00BDE65D
+00BD92BD
+00BC2E6D
+00BD0365
+00BD193A
+
+00BCA078
+00BC0245
+00BC0AD3
+005433D8
+0055919C
+006299BC
+a1 of this^ is eventually passed down in parts to 00BE184E
+
+*/
+
+uintmax_t send_count = 0;
 int WINAPI my_send(SOCKET s, const char* buf, int len, int flags) {
     // Log, modify, or inspect the data
     // std::string remoteIP = GetRemoteIP(s);
@@ -70,13 +113,25 @@ int WINAPI my_send(SOCKET s, const char* buf, int len, int flags) {
     if (buf && len > 0) {
         Timestampedtracef("Data: %.*s\n", len, buf);
     }
-
+    std::ofstream f;
+    std::string log = folder+"send_packet_" + std::to_string(send_count) + ".txt";
+    f.open(log, std::ios::binary);
+    f.write(buf, len);
+    f.close();
+    send_count++;
+    std::ofstream simp;
+    simp.open(folder+"send_callers.txt", std::ios::app);
+    void* caller = getCallerAddress();
+    void* nextup = getCallerAddressNextUp();
+    log = "caller " + std::to_string(send_count - 1) + PointerToHexString(caller) + "," + PointerToHexString(nextup) + "\n";
+    simp.write(log.c_str(), log.size());
+    simp.close();
     // Call the original send function
     return original_send(s, buf, len, flags);
 }
 
 static decltype(&recv) real_recv = recv;
-
+uintmax_t recv_count = 0;
 int WSAAPI my_recv(SOCKET s, char* buf, int len, int flags)
 {
     int ret = real_recv(s, buf, len, flags);
@@ -85,6 +140,19 @@ int WSAAPI my_recv(SOCKET s, char* buf, int len, int flags)
         // Log the received data
         Timestampedtracef("[Hooked recv] Remote IP: %s\n", GetRemoteIP(s));
         Timestampedtracef("[Hooked recv] Received %d bytes:\n", ret);
+        std::ofstream f;
+        std::string log = folder+"recv_packet_" + std::to_string(recv_count) + ".txt";
+        f.open(log, std::ios::binary);
+        f.write(buf, len);
+        f.close();
+        std::ofstream simp;
+        simp.open(folder + "recv_callers.txt", std::ios::app);
+        void* caller = getCallerAddress();
+        void* nextup = getCallerAddressNextUp();
+        log = "caller " + std::to_string(recv_count) + PointerToHexString(caller) + "," + PointerToHexString(nextup) + "\n";
+        simp.write(log.c_str(), log.size());
+        simp.close();
+        recv_count++;
         //fwrite(buf, 1, ret, stdout);
         //printf("\n");
     }
@@ -117,6 +185,7 @@ typedef int(__thiscall* HttpRequestAsync_t)(DWORD_PTR dwContext);
 HttpRequestAsync_t TrueHttpRequestAsync = nullptr;
 
 // this is unused by dow2 I think
+// HttpSendRequestEx performs both the send and the receive for the response. This does not allow the application to send any extra data beyond the single buffer that was passed to HttpSendRequestEx. 
 int __fastcall MyHttpRequestAsync(DWORD_PTR dwContext)
 {
     // Log or modify parameters here
@@ -175,14 +244,18 @@ int __fastcall Hooked_sub_BCACE0(SOCKET* a1, void* /*not used*/, int a2, DWORD* 
 }
 
 DWORD WINAPI MainThread(LPVOID param) {
+
+    folder = "packet_log/netreadd2_" + GetCurrentTimeString()+"/";
+    createFolder(folder);
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
 
     DetourAttach(&(PVOID&)original_send, my_send);
-    DetourAttach(&(PVOID&)original_connect, my_connect);
+    // DetourAttach(&(PVOID&)original_connect, my_connect);
     DetourAttach(&(PVOID&)original_ctor, MyWorldwideLoginServiceCtor);
     DetourAttach(&(PVOID&)real_recv, my_recv);
     DetourAttach(&(PVOID&)OriginalCreateSocket, DetourCreateSocket);
+    DetourAttach(&(PVOID&)original_sub_BC09F0, DetouredSub_BC09F0);
     //DetourAttach(&(PVOID&)Original_sub_BCACE0, Hooked_sub_BCACE0);
     //DetourAttach(&(PVOID&)TrueHttpRequestAsync, MyHttpRequestAsync);
     return DetourTransactionCommit() == NO_ERROR;
@@ -195,6 +268,8 @@ void __declspec(naked) MidNetInit() {
         jmp[jmpback_midnetinit];
     }
 }
+
+//Net::CreatePacketHeader could be useful
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
@@ -213,6 +288,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         original_ctor = reinterpret_cast<WorldwideLoginServiceCtor_t>(base + 0x22A200);
         Original_sub_BCACE0 = reinterpret_cast<sub_BCACE0_t>(base + 0x7CACE0);
         OriginalCreateSocket = reinterpret_cast<CreateSocket_t>(base + 0x25B7C0);
+        original_sub_BC09F0 = reinterpret_cast<sub_BC09F0_t>(base + 0x7C09F0);
         if (WSAStartup(0x202u, &wsa))
         {
             Fatal_f("Failed wsa startup!");
