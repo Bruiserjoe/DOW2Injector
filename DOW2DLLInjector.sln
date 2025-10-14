@@ -25,6 +25,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Profiler", "Profiler\Profil
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NetworkPatch", "NetworkPatch\NetworkPatch.vcxproj", "{463FECA7-5F3F-4E59-9754-A56FF21DDE7C}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WindowPatch", "WindowPatch\WindowPatch.vcxproj", "{E5EDE553-5E8C-4DED-8463-CBA12BDDC431}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -75,6 +77,10 @@ Global
 		{463FECA7-5F3F-4E59-9754-A56FF21DDE7C}.Debug|x86.Build.0 = Debug|Win32
 		{463FECA7-5F3F-4E59-9754-A56FF21DDE7C}.Release|x86.ActiveCfg = Release|Win32
 		{463FECA7-5F3F-4E59-9754-A56FF21DDE7C}.Release|x86.Build.0 = Release|Win32
+		{E5EDE553-5E8C-4DED-8463-CBA12BDDC431}.Debug|x86.ActiveCfg = Debug|Win32
+		{E5EDE553-5E8C-4DED-8463-CBA12BDDC431}.Debug|x86.Build.0 = Debug|Win32
+		{E5EDE553-5E8C-4DED-8463-CBA12BDDC431}.Release|x86.ActiveCfg = Release|Win32
+		{E5EDE553-5E8C-4DED-8463-CBA12BDDC431}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

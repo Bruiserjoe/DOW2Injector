@@ -251,7 +251,7 @@ DWORD WINAPI MainThread(LPVOID param) {
     DetourUpdateThread(GetCurrentThread());
 
     DetourAttach(&(PVOID&)original_send, my_send);
-    // DetourAttach(&(PVOID&)original_connect, my_connect);
+    DetourAttach(&(PVOID&)original_connect, my_connect);
     DetourAttach(&(PVOID&)original_ctor, MyWorldwideLoginServiceCtor);
     DetourAttach(&(PVOID&)real_recv, my_recv);
     DetourAttach(&(PVOID&)OriginalCreateSocket, DetourCreateSocket);
@@ -270,6 +270,9 @@ void __declspec(naked) MidNetInit() {
 }
 
 //Net::CreatePacketHeader could be useful
+// look at wireshark net capture
+// figure out where the buffer is created for http send
+
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {

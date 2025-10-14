@@ -48,8 +48,6 @@ extern Fatalf Fatal_f;
     // -merge rust patch (https://github.com/RipleyTom/rustpatch) X
     // -fix crashes on gamemode patch X
     // -change how cullsphere patch works, rip out algorithm solver, just add options for max curve etc X
-    // -add networking patch (connect to custom relicnet/lobby server) 
-    // -stable release version of reversed relicnet server 
     // -move all mods over to using timestampedf for error logging X
     // -immediate dll injection option X
 
@@ -69,6 +67,8 @@ extern Fatalf Fatal_f;
 //current todo 2.0
     // -ui patch (add elements to any ui page, also create new ui pages)
     // -add lan back
+    // -add networking patch (connect to custom relicnet/lobby server) 
+    // -stable release version of reversed relicnet server 
     // -new, more responsive tools for editing mod data
     // -extend module file type so you don't need the seperate config files scattered all over the dow2 folder
     // -multiple module loading, the top level loaded will overwrite anything loaded after it
