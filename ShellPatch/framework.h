@@ -37,6 +37,19 @@ bool JmpPatch(BYTE* dst, DWORD target, size_t size) {
     return true;
 }
 
+struct raw_shell {
+    char* name = nullptr;
+    DWORD val = 0;
+    DWORD* target = &val;
+};
+
+struct Memb {
+    std::string race_name;
+    std::string shell_name;
+    bool base_shell;
+    DWORD base_offset;
+    DWORD* target;
+};
 
 
 class ShellMap {
@@ -45,14 +58,6 @@ private:
         std::string name;
         DWORD val = 0;
         DWORD* target = &val;
-    };
-
-    struct Memb {
-        std::string race_name;
-        std::string shell_name;
-        bool base_shell;
-        DWORD base_offset;
-        DWORD* target;
     };
     size_t size_before_org = 0;
     std::vector<shell> shell_names; //vector for all new shells added
@@ -87,7 +92,7 @@ public:
         races.push_back({ "race_tyranid", "/waaagh_meter_shell/meter_mc/tyr", true, 0x4C, nullptr });
     }
 
-    void loadFile(std::string path) {
+    void loadFile(std::string path, size_t* out_man) {
         std::ifstream file;
         file.open(path);
         std::string line;
@@ -104,6 +109,7 @@ public:
 
         file.close();
         size_before_org = shell_names.size();
+        *out_man = size_before_org;
     }
 
     //shell logic
@@ -137,6 +143,21 @@ public:
 
     DWORD* getShellTarget(int index) {
         return shell_names[index].target;
+    }
+    raw_shell* getRawShells(size_t* size) {
+        raw_shell* r_shells = new raw_shell[shell_names.size()];
+        for (size_t i = 0; i < shell_names.size(); i++) {
+            char* str = new char[shell_names[i].name.size() + 1];
+            for (size_t j = 0; j < shell_names[i].name.size(); j++) {
+                str[j] = shell_names[i].name[j];
+            }
+            str[shell_names[i].name.size()] = '\0';
+            r_shells[i].name = str;
+            r_shells[i].val = shell_names[i].val;
+            r_shells[i].target = &r_shells[i].val;
+        }
+        *size = shell_names.size();
+        return r_shells;
     }
 
     void updateShellTarget(int index, DWORD* target) {

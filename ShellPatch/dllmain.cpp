@@ -19,6 +19,15 @@ typedef int(__fastcall* CreateSFWidget)(int e1, const char* a2, int a3);
 CreateSFWidget sf_widg = nullptr;
 DWORD sfw = 0;
 
+// converting get
+// -look at how getkey is supposed to be called, probably doing something wrong there
+// -also need renderpointer to be updated in selectui
+// global map vars
+size_t shell_map_size = 0;
+size_t size_before_org = 0;
+raw_shell* shell_names;
+std::vector<Memb> races;
+
 
 //the shells are stored in 000_data.sga
 //ui/textures/space_marines/hud/selection_panel/x_bg.dds - will have x_bg_{name}.dds for factions, ork uses w_bg.dds
@@ -76,11 +85,35 @@ const char* cur_shell_load = nullptr;
 char shell_load_index = 110;
 //maybe use offset of value in double pointer
 void __declspec(naked) MidLoadShells() {
-    /*__asm {
+    __asm {
+        push edx;
+        push edi;
+        mov ebx, 0;
+        mov edi, dword ptr[shell_names];
+    shell_load_loop:
+        cmp ebx, [shell_map_size];
+        jz end_loop;
+        push 0x3C8;
+        call operator_new;
+        mov esi, eax;
+        add esp, 4;
+        mov edx, ebx;
+        mov BYTE PTR[esp + 0x2a4], dl;
+        mov edx, edi;
+        mov eax, ebp;
+        call sf_widget_c;
+        push ebp;
+        mov esi, eax;
+        mov BYTE PTR[esp + 0x2a8], 0x0
         call add_to_dic;
-    }*/
 
-    for (index_i = 0; index_i < sh_map.totalShells(); index_i++, shell_load_index++) {
+        add ebx, 1;
+        jmp shell_load_loop;
+    end_loop:
+        pop edi;
+        pop ebx;
+    }
+    /*for (index_i = 0; index_i < sh_map.totalShells(); index_i++, shell_load_index++) {
         cur_shell_load = sh_map.getShell(index_i);
             __asm {
                 push 0x3C8;
@@ -98,7 +131,7 @@ void __declspec(naked) MidLoadShells() {
                 mov BYTE PTR[esp + 0x2a8], 0x0
                 call add_to_dic;
             }
-    }
+    }*/
      __asm{
         jmp[loadshells_jmpback];
     }
@@ -161,7 +194,35 @@ DWORD shellget_jmpback = 0;
 DWORD* temp_shell_target = 0;
 //cur_shell_load is same offset so it draws the same fuckign thing since it uses the offset omfg, I think this is right fufcucjusiih
 void __declspec(naked) MidShellGet() {
-    for (index_i = 0; index_i < sh_map.shellNum(); index_i++) {
+    __asm {
+        push edx;
+        push ebx;
+        push ecx;
+        mov ebx, dword ptr[shell_names];
+        mov edx, 0;
+    shell_get_loop:
+        cmp edx, [size_before_org];
+        jz end_loop;
+        push ebx; // char*
+        lea ecx, [esp + 0x14];
+        push ecx;
+        call edi; // dic instance
+        mov ecx, eax;
+        call ebx; // dic get key
+        lea ecx, [ebx + 8]; // target
+        push ecx;
+        mov ecx, [eax];
+        push ecx;
+        call DrawUIElement;
+        add ebx, 0xC;
+        add edx, 1;
+        jmp shell_get_loop;
+    end_loop:
+        pop ecx;
+        pop ebx;
+        pop edx;
+    }
+    /*for (index_i = 0; index_i < sh_map.shellNum(); index_i++) {
         cur_shell_load = sh_map.getShell(index_i);
         temp_shell_target = sh_map.getShellTarget(index_i);
         __asm {
@@ -181,7 +242,7 @@ void __declspec(naked) MidShellGet() {
             //call SelectUIElement;
         }
         sh_map.updateShellTarget(index_i, temp_shell_target);
-    }
+    }*/
     __asm {
         push 0x1115304
         jmp[shellget_jmpback];
@@ -190,7 +251,25 @@ void __declspec(naked) MidShellGet() {
 
 DWORD midshell_jmpback = 0;
 void __declspec(naked) MidShellSelect() {
-    for (index_i = 0; index_i < sh_map.shellNum(); index_i++) {
+    __asm {
+        push edi;
+        push ebx;
+        mov edi, 0;
+        mov ebx, dword ptr [shell_names];
+    shell_target_loop:
+        cmp edi, [size_before_org];
+        jz leave_loop;
+        mov ecx, [ebx + 0x8];
+        xor al, al;
+        call SelectUIElement;
+        add ebx, 0xC;
+        add edi, 1;
+        jmp shell_target_loop;
+    leave_loop:
+        pop ebx;
+        pop edi;
+    }
+    /*for (index_i = 0; index_i < sh_map.shellNum(); index_i++) {
         temp_shell_target = sh_map.getShellTarget(index_i);
         __asm {
             mov ecx, [temp_shell_target];
@@ -199,7 +278,8 @@ void __declspec(naked) MidShellSelect() {
         }
         sh_map.updateShellTarget(index_i, temp_shell_target);
     }
-    getRenderPointer();
+    getRenderPointer();*/
+
     __asm {
         mov ecx, [esi + 0x50];
         xor al, al;
@@ -269,8 +349,6 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
 typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
 PlatGetOption plat_getoption = nullptr;
 
-
-
 //figure out how to properly allocate data in exe, apparently need to add 4 to esp, that fixes crash wtf, ig because of allocate?
 //Get select ui element part in
 //  -two shells are drawing because we never load gn, figure out why it is still drawing two tf inspect the selectuielemnt execution for new shell
@@ -302,7 +380,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         modu = std::string(mod1);
         modu = modu + ".shells";
 
-        sh_map.loadFile(modu);
+        sh_map.loadFile(modu, &size_before_org);
         Timestampedtracef("Shell Patch: Success loading config!");
         waaagh_meter_mc = (const char*)base + 0xD1520C;
         waaagh_text = (const char*)base + 0xD15324;
@@ -331,7 +409,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         sh_map.addShell((const char*) base + 0xD152E0); //csm
         //used
         
-
+        shell_names = sh_map.getRawShells(&shell_map_size);
         //new patch stuff
         //used
         addToDic = base + 0x282760;
@@ -355,7 +433,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         
 
         test_jmpback = (base + 0x76D18F);
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
+        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
 
         mscvr80 = GetModuleHandleA("MSVCR80");
         if (mscvr80) {
@@ -369,7 +447,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         }
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
-        DetourAttach((void**)&gen_waaagh_target, GenerateWaaaghMeterShellDetour);
+        // DetourAttach((void**)&gen_waaagh_target, GenerateWaaaghMeterShellDetour);
         DetourTransactionCommit();
         break;
     case DLL_THREAD_ATTACH:
