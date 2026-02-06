@@ -50,10 +50,10 @@ extern Fatalf Fatal_f;
     // -change how cullsphere patch works, rip out algorithm solver, just add options for max curve etc X
     // -move all mods over to using timestampedf for error logging X
     // -immediate dll injection option X
+    // -convert patches to use signature scanning instead of static offset 
 
 //current todo 1.9.1
     // -fix requistion point upgrades fucking up healthbar
-    // -launcher (add game finder when server reversed)
     //gamemode patch
         // -custom team layouts
         // -figure out how to make lobby size "infinite"

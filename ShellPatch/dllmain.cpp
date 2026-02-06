@@ -4,7 +4,6 @@
 DWORD base;
 HMODULE util;
 HMODULE plat;
-ShellMap sh_map;
 
 std::vector<std::string> shells;
 
@@ -20,9 +19,9 @@ CreateSFWidget sf_widg = nullptr;
 DWORD sfw = 0;
 
 // converting get
-// -look at how getkey is supposed to be called, probably doing something wrong there
 // -also need renderpointer to be updated in selectui
 // //   - selectui probably still broken too
+// //   - still need to do this ^
 // global map vars
 size_t shell_map_size = 0;
 size_t size_before_org = 0;
@@ -54,7 +53,14 @@ DWORD SelectUIElement = 0;
 //shit that actually matters lol    
 
 
-
+std::string lookupShell(std::string race_name) {
+    for (auto& i : races) {
+        if (i.race_name.compare(race_name) == 0) {
+            return i.shell_name;
+        }
+    }
+    return "";
+}
 
 //shell generation hooks
 
@@ -69,7 +75,7 @@ void getShellName() {
         add eax, 0x70;
         mov shell_name, eax;
     }
-    race_string = sh_map.lookupShell(shell_name);
+    race_string = lookupShell(shell_name);
     shell_char = race_string.c_str();
 }
 
@@ -145,7 +151,21 @@ DWORD test_jmpback = 0;
 DWORD* render_ptr = nullptr;
 DWORD render_offset = 0;
 void __declspec(naked) TestMidDrawShell() {
-    if (base_shell_yah) {
+    __asm {
+        mov cl, [base_shell_yah];
+        cmp cl, 1;
+        jnz not_base_shell;
+        mov ecx, esi;
+        add ecx, render_offset;
+        mov ecx, dword ptr[ecx];
+        jmp select_ui;
+    not_base_shell:
+        mov ecx, dword ptr[render_ptr];
+    select_ui:
+        mov al, 0x1;
+        call SelectUIElement;
+    }
+   /* if (base_shell_yah) {
         __asm {
             mov ecx, esi;
             add ecx, render_offset;
@@ -160,7 +180,7 @@ void __declspec(naked) TestMidDrawShell() {
     __asm {
         mov al, 0x1;
         call SelectUIElement;
-    }
+    }*/
     __asm{ 
         jmp[test_jmpback];
     }
@@ -180,14 +200,52 @@ DWORD dic_in = 0;
 DWORD dic_key = 0;
 
 char* selection_panel_pointer = 0;
+
+DWORD* lookupShellPointer(std::string race_name) {
+    for (auto& i : races) {
+        if (i.race_name.compare(race_name) == 0) {
+            if (i.base_shell) {
+                return (DWORD*)i.base_offset;
+            }
+            else {
+                return i.target;
+            }
+        }
+    }
+    return races[0].target;
+}
+bool lookupBaseShell(std::string race_name) {
+    for (auto& i : races) {
+        if (i.race_name.compare(race_name) == 0) {
+            return i.base_shell;
+        }
+    }
+    return false;
+}
+
+DWORD getBaseShellOffset(std::string race_name) {
+    for (auto& i : races) {
+        if (i.race_name.compare(race_name) == 0) {
+            return i.base_offset;
+        }
+    }
+    return 0;
+}
+
 void getRenderPointer() {
     //sh_map.setRacePointer("race_marine", false, tt);
-    sh_map.updateRacePointers();
-    render_ptr = sh_map.getShellTarget(0);
-    render_ptr = (DWORD*)sh_map.lookupShellPointer(race_string);
-    base_shell_yah = sh_map.lookupBaseShell(race_string);
+    for (int i = 0; i < races.size(); i++) {
+        for (int j = 0; j < shell_map_size; j++) {
+            if (races[i].shell_name.compare(shell_names[j].name) == 0 && !races[i].base_shell) {
+                races[i].target = shell_names[j].target;
+            }
+        }
+    }
+    render_ptr = shell_names[0].target;
+    render_ptr = (DWORD*)lookupShellPointer(race_string);
+    base_shell_yah = lookupBaseShell(race_string);
     if (base_shell_yah) {
-        render_offset = sh_map.getBaseShellOffset(race_string);
+        render_offset = getBaseShellOffset(race_string);
     }
 }
 
@@ -249,7 +307,15 @@ void __declspec(naked) MidShellGet() {
         jmp[shellget_jmpback];
     }
 }
-
+/*void getRenderPointer() {
+    sh_map.updateRacePointers();
+    render_ptr = sh_map.getShellTarget(0);
+    render_ptr = (DWORD*)sh_map.lookupShellPointer(race_string);
+    base_shell_yah = sh_map.lookupBaseShell(race_string);
+    if (base_shell_yah) {
+        render_offset = sh_map.getBaseShellOffset(race_string);
+    }
+}*/
 DWORD midshell_jmpback = 0;
 void __declspec(naked) MidShellSelect() {
     __asm {
@@ -323,6 +389,7 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
         mov eax, DWORD PTR ds : 0xf89330;
         mov dic_key, eax;
     }
+    getRenderPointer();
     getShellName();
     std::string sh(shell_name);
     race_string = sh;
@@ -349,6 +416,69 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
 
 typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
 PlatGetOption plat_getoption = nullptr;
+
+std::string readBeforeSemiColon(std::string line, int* index) {
+    std::string ret = "";
+    for (*index; *index < line.size() && line[*index] != ';'; (*index)++) {
+        ret.push_back(line[*index]);
+    }
+    return ret;
+}
+bool raceContains(std::string shell, std::string race) {
+    for (int i = 0; i < races.size(); i++) {
+        if (races[i].race_name.compare(race) == 0) {
+            races[i].base_shell = false;
+            races[i].shell_name = shell;
+            return true;
+        }
+    }
+    return false;
+}
+
+void addShell(std::string name, std::vector<shell>& temp_shells) {
+    temp_shells.push_back({ name });
+    temp_shells[temp_shells.size() - 1].target = &temp_shells[temp_shells.size() - 1].val;
+}
+
+void loadConfig(std::string path) {
+    std::ifstream file;
+    file.open(path);
+    std::string line;
+    std::vector<shell> temp_shells;
+    while (getline(file, line)) {
+        int index = 0;
+        std::string race = readBeforeSemiColon(line, &index);
+        index++;
+        std::string shell = readBeforeSemiColon(line, &index);
+        if (!raceContains(shell, race)) {
+            races.push_back({ race, shell, false, 0, nullptr });
+        }
+        temp_shells.push_back({ shell });
+        temp_shells[temp_shells.size() - 1].target = &temp_shells[temp_shells.size() - 1].val;
+    }
+
+    file.close();
+    size_before_org = temp_shells.size();
+    addShell((const char*)base + 0xD15278, temp_shells); //sm
+    addShell((const char*)base + 0xD15304, temp_shells);//ig
+    addShell((const char*)base + 0xD15298, temp_shells); //eld
+    addShell((const char*)base + 0xD152BC, temp_shells); //tyr
+    addShell((const char*)base + 0xD152E0, temp_shells); //csm
+    // do the raw ptrs now
+    raw_shell* r_shells = new raw_shell[temp_shells.size()];
+    for (size_t i = 0; i < temp_shells.size(); i++) {
+        char* str = new char[temp_shells[i].name.size() + 1];
+        for (size_t j = 0; j < temp_shells[i].name.size(); j++) {
+            str[j] = temp_shells[i].name[j];
+        }
+        str[temp_shells[i].name.size()] = '\0';
+        r_shells[i].name = str;
+        r_shells[i].val = temp_shells[i].val;
+        r_shells[i].target = &r_shells[i].val;
+    }
+    shell_names = r_shells;
+    shell_map_size = temp_shells.size();
+}
 
 //figure out how to properly allocate data in exe, apparently need to add 4 to esp, that fixes crash wtf, ig because of allocate?
 //Get select ui element part in
@@ -381,7 +511,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         modu = std::string(mod1);
         modu = modu + ".shells";
 
-        sh_map.loadFile(modu, &size_before_org);
+        // sh_map.loadFile(modu, &size_before_org);
+        loadConfig(modu);
         Timestampedtracef("Shell Patch: Success loading config!");
         waaagh_meter_mc = (const char*)base + 0xD1520C;
         waaagh_text = (const char*)base + 0xD15324;
@@ -403,14 +534,13 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         }
         //sh_map.addShell("/waaagh_meter_shell/meter_mc/gn");
         //sh_map.addShell("/waaagh_meter_shell/meter_mc/nec");
-        sh_map.addShell((const char*) base + 0xD15278); //sm
+       /* sh_map.addShell((const char*)base + 0xD15278); //sm
         sh_map.addShell((const char*)base + 0xD15304);//ig
         sh_map.addShell((const char*) base + 0xD15298); //eld
         sh_map.addShell((const char*) base + 0xD152BC); //tyr
-        sh_map.addShell((const char*) base + 0xD152E0); //csm
+        sh_map.addShell((const char*) base + 0xD152E0); //csm*/
         //used
         
-        shell_names = sh_map.getRawShells(&shell_map_size);
         //new patch stuff
         //used
         addToDic = base + 0x282760;
@@ -434,7 +564,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         
 
         test_jmpback = (base + 0x76D18F);
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
 
         mscvr80 = GetModuleHandleA("MSVCR80");
         if (mscvr80) {
@@ -448,7 +578,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         }
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
-        // DetourAttach((void**)&gen_waaagh_target, GenerateWaaaghMeterShellDetour);
+        DetourAttach((void**)&gen_waaagh_target, GenerateWaaaghMeterShellDetour);
         DetourTransactionCommit();
         break;
     case DLL_THREAD_ATTACH:

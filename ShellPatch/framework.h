@@ -42,6 +42,11 @@ struct raw_shell {
     DWORD val = 0;
     DWORD* target = &val;
 };
+struct shell {
+    std::string name;
+    DWORD val = 0;
+    DWORD* target = &val;
+};
 
 struct Memb {
     std::string race_name;
@@ -51,14 +56,9 @@ struct Memb {
     DWORD* target;
 };
 
-
+/*
 class ShellMap {
 private:
-    struct shell {
-        std::string name;
-        DWORD val = 0;
-        DWORD* target = &val;
-    };
     size_t size_before_org = 0;
     std::vector<shell> shell_names; //vector for all new shells added
     //probably use hashmap to lookup the correct shell for each race_
@@ -233,4 +233,4 @@ public:
         }
         return "";
     }
-};
+};*/
