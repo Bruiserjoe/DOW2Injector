@@ -22,6 +22,7 @@ DWORD sfw = 0;
 // converting get
 // -look at how getkey is supposed to be called, probably doing something wrong there
 // -also need renderpointer to be updated in selectui
+// //   - selectui probably still broken too
 // global map vars
 size_t shell_map_size = 0;
 size_t size_before_org = 0;
@@ -196,30 +197,30 @@ DWORD* temp_shell_target = 0;
 void __declspec(naked) MidShellGet() {
     __asm {
         push edx;
-        push ebx;
-        push ecx;
-        mov ebx, dword ptr[shell_names];
+        push esi;
+        mov esi, dword ptr[shell_names];
         mov edx, 0;
     shell_get_loop:
         cmp edx, [size_before_org];
         jz end_loop;
-        push ebx; // char*
-        lea ecx, [esp + 0x14];
+        push edx;
+        push esi; // char*
+        lea ecx, [esp + 0x20]; // 0x14 isn't right since we fuck with stack here
         push ecx;
         call edi; // dic instance
         mov ecx, eax;
         call ebx; // dic get key
-        lea ecx, [ebx + 8]; // target
+        lea ecx, [esi + 8]; // target
         push ecx;
         mov ecx, [eax];
         push ecx;
         call DrawUIElement;
-        add ebx, 0xC;
+        add esi, 0xC;
+        pop edx;
         add edx, 1;
         jmp shell_get_loop;
     end_loop:
-        pop ecx;
-        pop ebx;
+        pop esi;
         pop edx;
     }
     /*for (index_i = 0; index_i < sh_map.shellNum(); index_i++) {
