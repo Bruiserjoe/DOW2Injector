@@ -36,12 +36,13 @@ bool JmpPatch(BYTE* dst, DWORD target, size_t size) {
     VirtualProtect(dst, size, prot, &prot);
     return true;
 }
-
+#pragma pack(push, 1)
 struct raw_shell {
     char* name = nullptr;
     DWORD val = 0;
     DWORD* target = &val;
 };
+#pragma pack(pop)
 struct shell {
     std::string name;
     DWORD val = 0;

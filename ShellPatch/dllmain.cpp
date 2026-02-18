@@ -19,14 +19,18 @@ CreateSFWidget sf_widg = nullptr;
 DWORD sfw = 0;
 
 // converting get
-// -also need renderpointer to be updated in selectui
+// -also need renderpointer to be updated in selectui, selectui section not being called, probably because of how we init the memory
 // //   - selectui probably still broken too
 // //   - still need to do this ^
+// - 0x00685450 is crash, when we are grabbing 0x209 from ecx
+// - now it's 0x34, think we are doing the ptrs wrong
+// - maybe midshell get??
 // global map vars
 size_t shell_map_size = 0;
 size_t size_before_org = 0;
 raw_shell* shell_names;
 std::vector<Memb> races;
+size_t raw_shell_size = 12;
 
 
 //the shells are stored in 000_data.sga
@@ -104,24 +108,27 @@ void __declspec(naked) MidLoadShells() {
         call operator_new;
         mov esi, eax;
         add esp, 4;
-        mov edx, ebx;
+        mov dl, shell_load_index;
         mov BYTE PTR[esp + 0x2a4], dl;
-        mov edx, edi;
+        mov edx, [edi];
         mov eax, ebp;
         call sf_widget_c;
         push ebp;
         mov esi, eax;
-        mov BYTE PTR[esp + 0x2a8], 0x0
+        mov BYTE PTR[esp + 0x2a8], 0x0;
         call add_to_dic;
-
+        mov dl, shell_load_index;
+        inc dl;
+        mov shell_load_index, dl;
         add ebx, 1;
+        add edi, raw_shell_size;
         jmp shell_load_loop;
     end_loop:
         pop edi;
-        pop ebx;
+        pop edx;
     }
-    /*for (index_i = 0; index_i < sh_map.totalShells(); index_i++, shell_load_index++) {
-        cur_shell_load = sh_map.getShell(index_i);
+    /*for (index_i = 0; index_i < shell_map_size; index_i++, shell_load_index++) {
+        cur_shell_load = shell_names[index_i].name;
             __asm {
                 push 0x3C8;
                 call operator_new;
@@ -143,59 +150,10 @@ void __declspec(naked) MidLoadShells() {
         jmp[loadshells_jmpback];
     }
 }
-
-
-//drawing hooks
 bool base_shell_yah = false;
 DWORD test_jmpback = 0;
 DWORD* render_ptr = nullptr;
 DWORD render_offset = 0;
-void __declspec(naked) TestMidDrawShell() {
-    __asm {
-        mov cl, [base_shell_yah];
-        cmp cl, 1;
-        jnz not_base_shell;
-        mov ecx, esi;
-        add ecx, render_offset;
-        mov ecx, dword ptr[ecx];
-        jmp select_ui;
-    not_base_shell:
-        mov ecx, dword ptr[render_ptr];
-    select_ui:
-        mov al, 0x1;
-        call SelectUIElement;
-    }
-   /* if (base_shell_yah) {
-        __asm {
-            mov ecx, esi;
-            add ecx, render_offset;
-            mov ecx, dword ptr[ecx];
-        }
-    }
-    else {
-        __asm {
-            mov ecx, dword ptr[render_ptr];
-        }
-    }
-    __asm {
-        mov al, 0x1;
-        call SelectUIElement;
-    }*/
-    __asm{ 
-        jmp[test_jmpback];
-    }
-}
-
-
-DWORD constant_shell = 0;
-DWORD change_jmpback = 0;
-void __declspec(naked) ChangeMidShell() {
-    __asm {
-        push shell_char;
-        jmp[change_jmpback];
-    }
-}
-
 DWORD dic_in = 0;
 DWORD dic_key = 0;
 
@@ -232,7 +190,7 @@ DWORD getBaseShellOffset(std::string race_name) {
     return 0;
 }
 
-void getRenderPointer() {
+extern "C" void getRenderPointer() {
     //sh_map.setRacePointer("race_marine", false, tt);
     for (int i = 0; i < races.size(); i++) {
         for (int j = 0; j < shell_map_size; j++) {
@@ -249,6 +207,54 @@ void getRenderPointer() {
     }
 }
 
+//drawing hooks
+void __declspec(naked) TestMidDrawShell() {
+    __asm {
+        mov cl, [base_shell_yah];
+        cmp cl, 1;
+        jnz not_base_shell;
+        mov ecx, esi;
+        add ecx, render_offset;
+        mov ecx, dword ptr[ecx];
+        jmp select_ui;
+    not_base_shell:
+        mov ecx, dword ptr [render_ptr];
+    select_ui:
+        mov al, 0x1;
+        call SelectUIElement;
+    }
+   /* if (base_shell_yah) {
+        __asm {
+            mov ecx, esi;
+            add ecx, render_offset;
+            mov ecx, dword ptr[ecx];
+        }
+    }
+    else {
+        __asm {
+            mov ecx, dword ptr[render_ptr];
+        }
+    }
+    __asm {
+        mov al, 0x1;
+        call SelectUIElement;
+    }*/
+    __asm{ 
+            jmp[test_jmpback];
+    }
+}
+
+
+DWORD constant_shell = 0;
+DWORD change_jmpback = 0;
+void __declspec(naked) ChangeMidShell() {
+    __asm {
+        push shell_char;
+        jmp[change_jmpback];
+    }
+}
+
+
 DWORD shellget_jmpback = 0;
 DWORD* temp_shell_target = 0;
 //cur_shell_load is same offset so it draws the same fuckign thing since it uses the offset omfg, I think this is right fufcucjusiih
@@ -263,7 +269,7 @@ void __declspec(naked) MidShellGet() {
         jz end_loop;
         push edx;
         push esi; // char*
-        lea ecx, [esp + 0x20]; // 0x14 isn't right since we fuck with stack here
+        lea ecx, [esp + 0x20]; // 0x14 isn't right since we fuck with stack here, should be 0x20
         push ecx;
         call edi; // dic instance
         mov ecx, eax;
@@ -273,7 +279,7 @@ void __declspec(naked) MidShellGet() {
         mov ecx, [eax];
         push ecx;
         call DrawUIElement;
-        add esi, 0xC;
+        add esi, raw_shell_size;
         pop edx;
         add edx, 1;
         jmp shell_get_loop;
@@ -307,29 +313,20 @@ void __declspec(naked) MidShellGet() {
         jmp[shellget_jmpback];
     }
 }
-/*void getRenderPointer() {
-    sh_map.updateRacePointers();
-    render_ptr = sh_map.getShellTarget(0);
-    render_ptr = (DWORD*)sh_map.lookupShellPointer(race_string);
-    base_shell_yah = sh_map.lookupBaseShell(race_string);
-    if (base_shell_yah) {
-        render_offset = sh_map.getBaseShellOffset(race_string);
-    }
-}*/
 DWORD midshell_jmpback = 0;
 void __declspec(naked) MidShellSelect() {
     __asm {
         push edi;
         push ebx;
         mov edi, 0;
-        mov ebx, dword ptr [shell_names];
+        mov ebx, shell_names;
     shell_target_loop:
         cmp edi, [size_before_org];
         jz leave_loop;
-        mov ecx, [ebx + 0x8];
+        mov ecx, [ebx + 0x8]; // assuming the offset to target is 0x8
         xor al, al;
         call SelectUIElement;
-        add ebx, 0xC;
+        add ebx, raw_shell_size;
         add edi, 1;
         jmp shell_target_loop;
     leave_loop:
@@ -346,7 +343,7 @@ void __declspec(naked) MidShellSelect() {
         sh_map.updateShellTarget(index_i, temp_shell_target);
     }
     getRenderPointer();*/
-
+    getRenderPointer();
     __asm {
         mov ecx, [esi + 0x50];
         xor al, al;
@@ -389,7 +386,6 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
         mov eax, DWORD PTR ds : 0xf89330;
         mov dic_key, eax;
     }
-    getRenderPointer();
     getShellName();
     std::string sh(shell_name);
     race_string = sh;
@@ -437,7 +433,6 @@ bool raceContains(std::string shell, std::string race) {
 
 void addShell(std::string name, std::vector<shell>& temp_shells) {
     temp_shells.push_back({ name });
-    temp_shells[temp_shells.size() - 1].target = &temp_shells[temp_shells.size() - 1].val;
 }
 
 void loadConfig(std::string path) {
@@ -454,7 +449,6 @@ void loadConfig(std::string path) {
             races.push_back({ race, shell, false, 0, nullptr });
         }
         temp_shells.push_back({ shell });
-        temp_shells[temp_shells.size() - 1].target = &temp_shells[temp_shells.size() - 1].val;
     }
 
     file.close();
@@ -468,10 +462,7 @@ void loadConfig(std::string path) {
     raw_shell* r_shells = new raw_shell[temp_shells.size()];
     for (size_t i = 0; i < temp_shells.size(); i++) {
         char* str = new char[temp_shells[i].name.size() + 1];
-        for (size_t j = 0; j < temp_shells[i].name.size(); j++) {
-            str[j] = temp_shells[i].name[j];
-        }
-        str[temp_shells[i].name.size()] = '\0';
+        strcpy_s(str, temp_shells[i].name.size() + 1, temp_shells[i].name.c_str());
         r_shells[i].name = str;
         r_shells[i].val = temp_shells[i].val;
         r_shells[i].target = &r_shells[i].val;
@@ -496,7 +487,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     {
     case DLL_PROCESS_ATTACH:
         base = (DWORD)GetModuleHandleA("DOW2.exe");
-
+        raw_shell_size = sizeof(raw_shell);
         plat = GetModuleHandleA("Platform.dll");
         if (plat) {
             plat_getoption = reinterpret_cast<PlatGetOption>(GetProcAddress(plat, MAKEINTRESOURCEA(78)));
