@@ -74,7 +74,6 @@ std::string lookupShell(std::string race_name) {
 //shell generation hooks
 
 const char* shell_char;
-std::string race_string = "";
 void getShellName() {
     __asm {
         mov ecx, dword ptr ds : 0x1335720;
@@ -84,8 +83,8 @@ void getShellName() {
         add eax, 0x70;
         mov shell_name, eax;
     }
-    race_string = lookupShell(shell_name);
-    shell_char = race_string.c_str();
+    //race_string = lookupShell(shell_name);
+    //shell_char = race_string.c_str();
 }
 
 HMODULE mscvr80;
@@ -207,9 +206,9 @@ extern "C" void getRenderPointer() {
     }
     render_ptr = shell_names[0].target;
     render_ptr = (DWORD*)lookupShellPointer(shell_name);
-    base_shell_yah = lookupBaseShell(race_string);
+    base_shell_yah = lookupBaseShell(shell_name);
     if (base_shell_yah) {
-        render_offset = getBaseShellOffset(race_string);
+        render_offset = getBaseShellOffset(shell_name);
     }
 }
 
@@ -408,8 +407,6 @@ char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
     }
     getShellName();
     std::string sh(shell_name);
-    race_string = sh;
-    selection_panel_pointer = ecx1;
     #ifdef _DEBUG
         Timestampedtracef("Shell Patch: patching the shell jmps in!");
     #endif
@@ -460,6 +457,11 @@ void loadConfig(std::string path) {
     file.open(path);
     std::string line;
     std::vector<shell> temp_shells;
+    races.push_back({ "race_marine", "/waaagh_meter_shell/meter_mc/sm", true, 0x40, nullptr });
+    races.push_back({ "race_imperial_guard", "/waaagh_meter_shell/meter_mc/ig", true, 0x44, nullptr });
+    races.push_back({ "race_eldar", "/waaagh_meter_shell/meter_mc/eld", true, 0x48, nullptr });
+    races.push_back({ "race_chaos", "/waaagh_meter_shell/meter_mc/csm", true, 0x50, nullptr });
+    races.push_back({ "race_tyranid", "/waaagh_meter_shell/meter_mc/tyr", true, 0x4C, nullptr });
     while (getline(file, line)) {
         int index = 0;
         std::string race = readBeforeSemiColon(line, &index);
