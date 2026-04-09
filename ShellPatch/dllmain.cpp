@@ -22,6 +22,11 @@ DWORD sfw = 0;
 // -also need renderpointer to be updated in selectui, selectui section not being called, probably because of how we init the memory
 // //   - selectui probably still broken too
 // //   - still need to do this ^
+// //   - data in dump doesn't seem correct when compared to regular selectui without mod
+// //   - data we target in selectui ecx, is what we create with sf widget creation, just save the pointer
+// //   - now the issue is only rendering the /gn/ shell,
+// //   - issue is the race string being empty because our detour isn't being called, hook, convert to regular patch?
+// //   - missing the default races in loop
 // - 0x00685450 is crash, when we are grabbing 0x209 from ecx
 // - now it's 0x34, think we are doing the ptrs wrong
 // - maybe midshell get??
@@ -107,6 +112,7 @@ void __declspec(naked) MidLoadShells() {
         push 0x3C8;
         call operator_new;
         mov esi, eax;
+        mov [edi + 0x8], eax; // saving the mem address of shell for our use
         add esp, 4;
         mov dl, shell_load_index;
         mov BYTE PTR[esp + 0x2a4], dl;
@@ -200,7 +206,7 @@ extern "C" void getRenderPointer() {
         }
     }
     render_ptr = shell_names[0].target;
-    render_ptr = (DWORD*)lookupShellPointer(race_string);
+    render_ptr = (DWORD*)lookupShellPointer(shell_name);
     base_shell_yah = lookupBaseShell(race_string);
     if (base_shell_yah) {
         render_offset = getBaseShellOffset(race_string);
@@ -259,6 +265,20 @@ DWORD shellget_jmpback = 0;
 DWORD* temp_shell_target = 0;
 //cur_shell_load is same offset so it draws the same fuckign thing since it uses the offset omfg, I think this is right fufcucjusiih
 void __declspec(naked) MidShellGet() {
+    __asm {
+        push ecx;
+        push edx;
+        push eax;
+        mov ecx, dword ptr ds : 0x1335720;
+        mov edx, [ecx + 0x8];
+        mov eax, [edx + 0x4];
+        mov eax, dword ptr[eax + 0xc8];
+        add eax, 0x70;
+        mov shell_name, eax;
+        pop eax;
+        pop edx;
+        pop ecx;
+    }
     __asm {
         push edx;
         push esi;
