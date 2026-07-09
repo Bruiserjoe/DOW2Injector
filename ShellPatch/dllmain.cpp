@@ -73,19 +73,6 @@ std::string lookupShell(std::string race_name) {
 
 //shell generation hooks
 
-const char* shell_char;
-void getShellName() {
-    __asm {
-        mov ecx, dword ptr ds : 0x1335720;
-        mov edx, [ecx + 0x8];
-        mov eax, [edx + 0x4];
-        mov eax, dword ptr[eax + 0xc8];
-        add eax, 0x70;
-        mov shell_name, eax;
-    }
-    //race_string = lookupShell(shell_name);
-    //shell_char = race_string.c_str();
-}
 
 HMODULE mscvr80;
 
@@ -132,25 +119,6 @@ void __declspec(naked) MidLoadShells() {
         pop edi;
         pop edx;
     }
-    /*for (index_i = 0; index_i < shell_map_size; index_i++, shell_load_index++) {
-        cur_shell_load = shell_names[index_i].name;
-            __asm {
-                push 0x3C8;
-                call operator_new;
-                mov esi, eax;
-                add esp, 4;
-                //mov dword ptr[esp + 0x14], esi;
-                mov dl, shell_load_index;
-                mov BYTE PTR[esp + 0x2a4], dl;
-                mov edx, cur_shell_load;
-                mov eax, ebp;
-                call sf_widget_c;
-                push ebp;
-                mov esi, eax;
-                mov BYTE PTR[esp + 0x2a8], 0x0
-                call add_to_dic;
-            }
-    }*/
      __asm{
         jmp[loadshells_jmpback];
     }
@@ -197,8 +165,8 @@ DWORD getBaseShellOffset(std::string race_name) {
 
 extern "C" void getRenderPointer() {
     //sh_map.setRacePointer("race_marine", false, tt);
-    for (int i = 0; i < races.size(); i++) {
-        for (int j = 0; j < shell_map_size; j++) {
+    for (size_t i = 0; i < races.size(); i++) {
+        for (size_t j = 0; j < shell_map_size; j++) {
             if (races[i].shell_name.compare(shell_names[j].name) == 0 && !races[i].base_shell) {
                 races[i].target = shell_names[j].target;
             }
@@ -228,34 +196,8 @@ void __declspec(naked) TestMidDrawShell() {
         mov al, 0x1;
         call SelectUIElement;
     }
-   /* if (base_shell_yah) {
-        __asm {
-            mov ecx, esi;
-            add ecx, render_offset;
-            mov ecx, dword ptr[ecx];
-        }
-    }
-    else {
-        __asm {
-            mov ecx, dword ptr[render_ptr];
-        }
-    }
-    __asm {
-        mov al, 0x1;
-        call SelectUIElement;
-    }*/
     __asm{ 
             jmp[test_jmpback];
-    }
-}
-
-
-DWORD constant_shell = 0;
-DWORD change_jmpback = 0;
-void __declspec(naked) ChangeMidShell() {
-    __asm {
-        push shell_char;
-        jmp[change_jmpback];
     }
 }
 
@@ -306,27 +248,6 @@ void __declspec(naked) MidShellGet() {
         pop esi;
         pop edx;
     }
-    /*for (index_i = 0; index_i < sh_map.shellNum(); index_i++) {
-        cur_shell_load = sh_map.getShell(index_i);
-        temp_shell_target = sh_map.getShellTarget(index_i);
-        __asm {
-            push cur_shell_load;
-            lea edx, [esp + 0x14];
-            push edx;
-            call edi; //dic instance
-            mov ecx, eax;
-            call ebx; //dic getkey
-            lea ecx, [temp_shell_target];
-            push ecx;
-            mov ecx, [eax];
-            push ecx;
-            call DrawUIElement; //drawuielement
-            //mov ecx, [temp_shell_target];
-            //xor al, al;
-            //call SelectUIElement;
-        }
-        sh_map.updateShellTarget(index_i, temp_shell_target);
-    }*/
     __asm {
         push 0x1115304
         jmp[shellget_jmpback];
@@ -352,16 +273,6 @@ void __declspec(naked) MidShellSelect() {
         pop ebx;
         pop edi;
     }
-    /*for (index_i = 0; index_i < sh_map.shellNum(); index_i++) {
-        temp_shell_target = sh_map.getShellTarget(index_i);
-        __asm {
-            mov ecx, [temp_shell_target];
-            xor al, al;
-            call SelectUIElement;
-        }
-        sh_map.updateShellTarget(index_i, temp_shell_target);
-    }
-    getRenderPointer();*/
     getRenderPointer();
     __asm {
         mov ecx, [esi + 0x50];
@@ -388,44 +299,6 @@ const char* waaagh_meter_mc = nullptr;
 const char* waaagh_text = nullptr;
 const char* waaagh_shell = nullptr;
 const char* global_abilities = nullptr;
-
-char __fastcall GenerateWaaaghMeterShellDetour(char* ecx1) {
-    __asm {
-       /* lea edx, [esp + 0x14];
-        mov v32, edx;
-        mov ecx, dword ptr ds : 0x1335720;
-        mov edx, [ecx + 0x8];
-        mov eax, [edx + 0x4];
-        mov v17, eax;
-        mov eax, dword ptr[eax + 0xc8];
-        mov v18, eax;
-        mov dword ptr [esp + 0x10], eax*/
-        mov eax, DWORD PTR ds : 0xf89100;
-        mov dic_in, eax;
-        mov eax, DWORD PTR ds : 0xf89330;
-        mov dic_key, eax;
-    }
-    getShellName();
-    std::string sh(shell_name);
-    #ifdef _DEBUG
-        Timestampedtracef("Shell Patch: patching the shell jmps in!");
-    #endif
-    if (sh.compare("race_ork") == 0) {
-        BYTE* src = (BYTE*)"\x68\x04\x53\x11\x01";
-        MemPatch(reinterpret_cast<BYTE*>(base + 0x76CF6F), src, 5); //MidShellGet
-        src = (BYTE*)"\x8b\x4e\x50\x32\xc0\xe8\x23\x84\xb1\xff";
-        MemPatch(reinterpret_cast<BYTE*>(base + 0x76D023), src, 10); //MidShellSelect
-        src = (BYTE*)"\x68\xFF\x00\x00\x00";
-        MemPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), src, 5); //TestMidDrawShell
-    }
-    else {
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D023), (DWORD)MidShellSelect, 10);
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF6F), (DWORD)MidShellGet, 5);
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
-    }
-    char t = gen_waaagh_target(ecx1);
-    return t;
-}
 
 typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
 PlatGetOption plat_getoption = nullptr;
@@ -565,9 +438,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C18A), (DWORD)MidLoadShells, 5);
         
         //new version
-        change_jmpback = base + 0x76CF50;
-        constant_shell = base + 0xF35720;
-        //JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF4B), (DWORD)ChangeMidShell, 5);
         
         midshell_jmpback = base + 0x76D02D;
         JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D023), (DWORD)MidShellSelect, 10);
@@ -589,10 +459,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             dic_in = reinterpret_cast<DWORD>(GetProcAddress(util, MAKEINTRESOURCEA(533)));
             dic_key = reinterpret_cast<DWORD>(GetProcAddress(util, MAKEINTRESOURCEA(385)));;
         }
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourAttach((void**)&gen_waaagh_target, GenerateWaaaghMeterShellDetour);
-        DetourTransactionCommit();
         break;
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:

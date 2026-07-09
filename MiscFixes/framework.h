@@ -4,7 +4,6 @@
 // Windows Header Files
 #include <windows.h>
 #include <string>
-#include <detours.h>
 #include <vector>
 #include <fstream>
 

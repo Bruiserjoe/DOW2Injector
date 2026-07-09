@@ -51,6 +51,13 @@ extern Fatalf Fatal_f;
     // -move all mods over to using timestampedf for error logging X
     // -immediate dll injection option X
     // -convert patches to use signature scanning instead of static offset 
+    // -remove all uses of detours
+        // -MiscFixes X
+        // -Cullsphere
+        // -8p-replay-fix
+        // -GamemodePatch X
+        // -EightPlayerFFAPatch
+        // -ShellPatch X
 
 //current todo 1.9.1
     // -fix requistion point upgrades fucking up healthbar
