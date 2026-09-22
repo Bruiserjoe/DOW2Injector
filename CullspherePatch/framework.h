@@ -3,7 +3,6 @@
 // Windows Header Files
 #include <windows.h>
 #include <string>
-#include <detours.h>
 #include <fstream>
 #include <vector>
 
@@ -69,6 +68,7 @@ public:
 			return *this;
 		}
 		this->max_distance = e.max_distance;
+		this->rate = e.rate;
 		return *this;
 	}
 
@@ -79,3 +79,18 @@ public:
 		return rate;
 	}
 };
+
+bool JmpPatch(BYTE* dst, DWORD target, size_t size) {
+	if (size < 5) {
+		return false;
+	}
+	DWORD prot;
+	VirtualProtect(dst, size, PAGE_EXECUTE_READWRITE, &prot);
+	std::memset(dst, 0x90, size);
+	DWORD relativeaddr = (target - (DWORD)dst) - 5;
+
+	*(dst) = 0xE9;
+	*(DWORD*)((DWORD)dst + 1) = relativeaddr;
+	VirtualProtect(dst, size, prot, &prot);
+	return true;
+}

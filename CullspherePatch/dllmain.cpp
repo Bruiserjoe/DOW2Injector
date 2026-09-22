@@ -9,13 +9,6 @@ PlatGetOption plat_getoption = nullptr;
 
 float camera_distance = 47.0f;
 
-typedef void(__fastcall *CullRetrieval)(int* param1);
-CullRetrieval org_retcull = reinterpret_cast<CullRetrieval>(0x007513b0);
-
-PDETOUR_TRAMPOLINE trampoline = nullptr; //final address of trampoline
-CullRetrieval real_target = nullptr; //final address of target
-CullRetrieval real_detour = nullptr; //final address of detour
-
 //util.dll functions
 HMODULE util;
 typedef void(__thiscall *Set)(void* ecx, char const* param1, float param2);
@@ -30,34 +23,80 @@ GetResourceData gr_data = nullptr;
 Timestampedf Timestampedtracef;
 Fatalf Fatal_f;
 
-//keep * on the right to the function name or else get weird errors
-//now set the cull area scale everytime this detour is called
-void __fastcall culldetour(int* ecx) {
-#ifdef _DEBUG
-    Timestampedtracef("CULLSPHERE PATCH: before scaling");
-    Timestampedtracef(("CULLSPHERE PATCH: Ptr: " + std::to_string((int)ecx)).c_str());
-#endif
-    int* tis = ecx + 0x26; //use this to get the resource data from util
-    char* r_data = (char*)gr_data(tis); //getting the resource data structure
-    //setting the value of cull_area_scale in the keyvaluecontainer
-    float scale = camera_distance;
-    if (camera_distance < cfg.getMax()) {
-        scale = (sinf(camera_distance * cfg.getRate() - 0.5f) + 1.0f) * 30.0f;
-    }
-    else {
-        scale = 0.5f;
-    }
+DWORD cull_jmp_back = 0;
+float cull_rate = 0.0037f;
+float cull_max = 800.0f;
+float float_half = 0.5f;
+float float_one = 1.0f;
+float float_thirty = 30.0f;
+char cull_area_scale_name[] = "cull_area_scale";
 
-    f_set((void*)(r_data + 0x78), "cull_area_scale", scale); //this was causing the crash
-#ifdef _DEBUG
-    Timestampedtracef("CULLSPHERE PATCH:Before orignal function call");
-#endif
-    org_retcull(ecx); //calling original function
-    //again for safety
-    f_set((void*)(r_data + 0x78), "cull_area_scale", scale); //this was causing the crash
-#ifdef _DEBUG
-    Timestampedtracef("CULLSPHERE PATCH: After cull function");
-#endif
+void __declspec(naked) setCullScale() {
+    __asm {
+        pushfd;
+        pushad;
+        sub esp, 4;
+
+        // int* arithmetic in the old detour made 0x26 equal to 0x98 bytes.
+        mov ecx, [esp + 28];
+        add ecx, 0x98;
+        call dword ptr [gr_data];
+        mov edi, eax;
+
+        fld dword ptr [camera_distance];
+        fcomp dword ptr [cull_max];
+        fnstsw ax;
+        sahf;
+        jp use_minimum;
+        jae use_minimum;
+
+        // (sinf(camera_distance * cull_rate - 0.5f) + 1.0f) * 30.0f
+        fld dword ptr [camera_distance];
+        fmul dword ptr [cull_rate];
+        fsub dword ptr [float_half];
+        fsin;
+        fadd dword ptr [float_one];
+        fmul dword ptr [float_thirty];
+        fstp dword ptr [esp];
+        jmp apply_scale;
+
+    use_minimum:
+        fld dword ptr [float_half];
+        fstp dword ptr [esp];
+
+    apply_scale:
+        push dword ptr [esp];
+        push offset cull_area_scale_name;
+        lea ecx, [edi + 0x78];
+        call dword ptr [f_set];
+
+        add esp, 4;
+        popad;
+        popfd;
+        ret;
+    }
+}
+
+void __declspec(naked) cullJmpPatch() {
+    __asm {
+        call setCullScale;
+
+        // Make the original function return through our post-call patch.
+        push ecx;
+        push offset after_cull;
+
+        // Original bytes at DOW2.exe+0x3513B0.
+        push ecx;
+        push ebx;
+        push ebp;
+        mov ebp, dword ptr ds:[0x00F89390];
+        jmp dword ptr [cull_jmp_back];
+
+    after_cull:
+        pop ecx;
+        call setCullScale;
+        ret;
+    }
 }
 
 //found the camera draw function
@@ -75,7 +114,23 @@ void __stdcall cameradrawdetour(int param1, float param2) {
     camera_distance = *cm;
 }
 
-
+DWORD camera_jmp_back = 0;
+void __declspec(naked) cameraDrawJmpPatch() {
+    __asm {
+        push ecx;
+        mov ecx, [ebp + 0x8];
+        add ecx, 0x300;
+		mov ecx, [ecx];
+        mov [camera_distance], ecx;
+        pop ecx;
+    }
+    __asm {
+        push ebx;
+        mov ebx, [ebp + 0x8];
+        push esi;
+        jmp[camera_jmp_back];
+    }
+}
 
 //base
 //10000000
@@ -114,17 +169,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         modu = std::string(mod1);
         modu = modu + ".cullsphere";
         cfg = Config(modu);
-
-        //attaching the hook
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourAttachEx((void**)&org_retcull, culldetour, &trampoline, (void**)&real_target, (void**)&real_detour);
-        DetourTransactionCommit();
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourAttach((void**)&cm_draw, cameradrawdetour);
-        DetourTransactionCommit();
-
+        cull_rate = cfg.getRate();
+        cull_max = cfg.getMax();
 
         util = GetModuleHandleA("Util.dll");
         if (util) {
@@ -135,19 +181,17 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
             f_ret = reinterpret_cast<Retrieve>(GetProcAddress(util, MAKEINTRESOURCEA(662)));
         }
 
+        if (gr_data && f_set) {
+            cull_jmp_back = base + 0x3513B9;
+            JmpPatch((BYTE*)(base + 0x3513B0), (DWORD)cullJmpPatch, 9);
+        }
+
+        camera_jmp_back = base + 0x7ACC39;
+        JmpPatch((BYTE*)(base + 0x7ACC34), (DWORD)cameraDrawJmpPatch, 5);
+
         break;
     case DLL_PROCESS_DETACH:
-        //detaching the dll
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourDetach((void**)&org_retcull, culldetour);
-        DetourTransactionCommit();
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourDetach((void**)&cm_draw, cameradrawdetour);
-        DetourTransactionCommit();
         break;
     }
     return TRUE;
 }
-

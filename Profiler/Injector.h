@@ -54,7 +54,7 @@ extern Fatalf Fatal_f;
     // -remove all uses of detours
         // -MiscFixes X
         // -Cullsphere
-        // -8p-replay-fix
+        // -8p-replay-fix X
         // -GamemodePatch X
         // -EightPlayerFFAPatch
         // -ShellPatch X
