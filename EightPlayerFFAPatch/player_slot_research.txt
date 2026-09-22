@@ -1,0 +1,262 @@
+DOW2 CONFIGURABLE PLAYER SLOT RESEARCH
+======================================
+
+Summary
+-------
+
+The DOW2 frontend and online advertisement layers appear capable of carrying a
+dynamic player count. However, several replay and observer systems contain
+fixed six-player arrays embedded inside larger objects. Changing their loop
+limits without changing their storage causes out-of-bounds memory writes.
+
+Making the lobby display an arbitrary number of slots is relatively simple.
+Making those players work throughout the simulation, networking, replay, and
+observer systems requires additional reverse engineering.
+
+
+Existing Dynamic Player Count
+-----------------------------
+
+The following parts of the game already use a runtime player count:
+
+- Maps expose a MaxPlayers value.
+- The frontend sends a Receive_SetMaxPlayers message.
+- Online advertisements contain currentPlayers and maxplayers fields.
+- The current lobby count is available at:
+
+    *(DWORD*)(*(DWORD*)(DOW2.exe + 0x00F35A78) + 0x17C)
+
+- EightPlayerFFAPatch::TeamSetupPatch derives its team count from this value.
+
+At DOW2.exe + 0x91369, the frontend passes the map player count to
+Receive_SetMaxPlayers. In the player-list population function, the same map
+count is stored at [ebp - 0xEE8] and copied to [ebp - 0x4C].
+
+The original special-mode code later replaces [ebp - 0x4C] with 6. The current
+EightPlayerFFAPatch replaces that instruction and chooses either 6 or 8.
+
+For configurable lobby slots, PopulateSlotsPatch should instead write either:
+
+- A configured desired_slots value; or
+- The map's MaxPlayers value from [ebp - 0xEE8].
+
+The map-derived value is preferable because it naturally matches the number of
+starting positions provided by the map.
+
+The dropdown hooks should treat any player count greater than six as expanded,
+rather than testing specifically for eight players.
+
+
+Confirmed Fixed Player Storage
+------------------------------
+
+A replay/observer object is allocated and constructed at:
+
+    DOW2.exe + 0x6D4A7F: push 0x5FC
+    DOW2.exe + 0x6D4A95: call DOW2.exe + 0x763A20
+
+The constructor at DOW2.exe + 0x763A20 initializes six player records. Each
+record is separated by a 0xD8-byte stride:
+
+    DOW2.exe + 0x763B93: add ecx, 0xD8
+    DOW2.exe + 0x763B99: cmp ebp, 6
+
+The same object contains other fixed fields at offsets including:
+
+    0x5B4
+    0x5BC through 0x5D0
+    0x5D4
+    0x5D8 and 0x5D9
+    0x5DC
+    0x5F4
+    0x5F8
+
+Increasing the constructor loop count would overwrite these fields and
+eventually exceed the 0x5FC-byte allocation. This is why changing only the
+six-player comparisons can cause crashes.
+
+
+Other Confirmed Six-Player Loops
+--------------------------------
+
+The following executable offsets contain player-related six-entry loops:
+
+    DOW2.exe + 0x73D935
+    DOW2.exe + 0x73D949
+        Observer panel player/team generation.
+
+    DOW2.exe + 0x764A51
+    DOW2.exe + 0x764A6D
+        Replay/observer UI loops. The second loop advances by 0xD8 bytes.
+
+    DOW2.exe + 0x765003
+        Player UI iteration.
+
+    DOW2.exe + 0x765259
+        Iterates records using a 0xD8-byte stride.
+
+    DOW2.exe + 0x76CBE0
+        Another player-related generation loop.
+
+    DOW2.exe + 0x763B99
+        Fixed player-record constructor.
+
+The observer-panel loops at 0x73D935 and 0x73D949 can likely be made
+configurable because they append entries to a dynamic container. The loops
+operating on the 0x5FC-byte object cannot safely be expanded without changing
+the underlying storage.
+
+
+Existing 8-Player Replay Fix
+----------------------------
+
+8p_Replay_Fix hooks code at DOW2.exe + 0x766F13.
+
+The original code indexes a record as:
+
+    record = object + 0xB0 + (player_index * 0xD8)
+
+The fix checks whether the resolved player index is 0xFFFFFFFF. If it is, the
+fix skips the record access.
+
+This avoids an invalid access for unsupported players, but it does not allocate
+records for additional players. It is a crash-avoidance patch rather than true
+expanded replay storage.
+
+
+Recommended Scalable Design
+---------------------------
+
+The safest scalable approach is sidecar dynamic storage.
+
+Keep the original 0x5FC-byte game object unchanged and allocate a separate
+player-record array owned by the patch:
+
+    struct ExtendedPlayers
+    {
+        void* owner;
+        BYTE* records;
+        DWORD count;
+    };
+
+The records allocation would contain:
+
+    desired_slots * 0xD8 bytes
+
+Functions that currently compute an embedded player-record address would be
+hooked. Their replacement logic would be conceptually:
+
+    if (player_index < 6)
+        return original embedded record;
+    else
+        return sidecar record[player_index - 6];
+
+This avoids relocating the fixed fields following the original six records.
+The patch would need to find and replace every accessor that computes an
+address using player_index * 0xD8.
+
+An alternative is enlarging the 0x5FC allocation and moving all fields that
+follow the embedded array. That approach is much riskier because every
+instruction referencing the moved fields would also need to be patched.
+
+
+Required Work by Subsystem
+--------------------------
+
+1. Lobby frontend
+
+   - Add a desired_slots configuration value, or use map MaxPlayers.
+   - Make PopulateSlotsPatch write the selected count.
+   - Change expanded-dropdown tests from count >= 8 to count > 6.
+   - Add scrolling or resize the player list for counts that do not fit.
+
+2. Map data
+
+   - Set MaxPlayers to the desired count.
+   - Provide at least that many valid starting positions.
+   - Verify that map validation does not impose another maximum.
+
+3. Team setup
+
+   - TeamSetupPatch is already mostly dynamic.
+   - FFA can request one team per player.
+   - Team modes can derive an appropriate team count from the lobby count.
+   - Team identifiers and team arrays still need validation above eight.
+
+4. Replay and observer systems
+
+   - Implement sidecar player records.
+   - Hook all 0xD8-stride record accessors.
+   - Replace six-entry UI loops with the configured count.
+   - Expand or scroll observer UI elements.
+   - Update replay serialization/deserialization if it stores fixed arrays.
+
+5. Live simulation
+
+   - Trace player creation for player index eight and above.
+   - Determine whether the simulation player manager uses dynamic containers.
+   - Find fixed player arrays, bitsets, and masks.
+   - Validate victory conditions, diplomacy, resources, AI, and team setup.
+
+6. Networking
+
+   - Check lobby and simulation packets for fixed arrays.
+   - Check readiness, team, player-presence, and synchronization masks.
+   - An eight-bit mask would impose a hard eight-player limit unless the
+     protocol is changed.
+   - All players must use the same patch and configured maximum.
+
+7. Online advertisement
+
+   - The advertisement schema already contains currentPlayers and maxplayers.
+   - Verify that the service and game parser accept values above eight.
+
+
+Recommended Development Plan
+----------------------------
+
+Phase 1: Configurable lobby prototype
+
+- Use a configuration value such as 12 or 16.
+- Populate that many lobby entries.
+- Keep replay and observer expansion disabled.
+- Log every player index passed into game-start and simulation functions.
+
+Phase 2: Live match validation
+
+- Create a test map with the same number of starting positions.
+- Start with AI players to avoid online-service variables.
+- Find the first subsystem that rejects or corrupts player index eight.
+- Add bounds checks and logging around every discovered player structure.
+
+Phase 3: Dynamic replay/observer storage
+
+- Implement sidecar 0xD8-byte records.
+- Redirect record accessors.
+- Expand all associated loops and UI elements.
+
+Phase 4: Networking
+
+- Test with multiple patched clients.
+- Compare serialized lobby and simulation messages.
+- Replace fixed masks or packet arrays where necessary.
+
+
+Practical Limits
+----------------
+
+A configurable target such as 12 or 16 players is a reasonable reverse-
+engineering goal. A literally unlimited count is not possible because the
+following resources remain finite:
+
+- Map starting positions
+- Player and team identifier widths
+- Network packet formats
+- Bit masks and fixed arrays
+- UI dimensions
+- Replay format
+- Simulation performance and memory
+
+The eventual patch should therefore use a documented maximum rather than an
+unbounded value. The maximum should be selected only after the simulation and
+network representations have been verified.
