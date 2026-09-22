@@ -1,164 +1,181 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "framework.h"
-int lobby_slots = 0;
-int l_lobby = 0;
-DWORD base;
-DWORD slots_addr;
 
-//https://guidedhacking.com/threads/how-to-hook-thiscall-function-__thiscall-calling-convention.8542/
+DWORD base = 0;
+DWORD slots_root = 0;
 
-//fix replays somehow
+DWORD team_setup_jmp_back = 0;
+DWORD populate_slots_jmp_back = 0;
+DWORD observer_dropdown = 0;
+DWORD observer_call_jmp_back = 0;
+DWORD closed_slot_path = 0;
+DWORD observer_condition_execute = 0;
+DWORD observer_condition_skip = 0;
 
+const BYTE team_setup_original[] = { 0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8 };
+const BYTE populate_slots_original[] = { 0xC7, 0x45, 0xB4, 0x06, 0x00, 0x00, 0x00 };
+const BYTE observer_dropdown_original[] = { 0xE8, 0xD7, 0x00, 0x00, 0x00 };
+const BYTE observer_condition_original[] = {
+    0x80, 0x7D, 0x0C, 0x00, 0x74, 0x12,
+    0x80, 0x7D, 0x10, 0x00, 0x75, 0x0C
+};
 
-uintptr_t FindDMAAddy(uintptr_t ptr, std::vector<unsigned int> offsets)
-{
-    uintptr_t addr = ptr;
-    for (unsigned int i = 0; i < offsets.size(); ++i)
-    {
-        addr = *(uintptr_t*)addr;
-        addr += offsets[i];
-    }
-    return addr;
-}
-
-
-
-//https://stackoverflow.com/questions/45262003/pointer-from-cheat-engine-to-c
-typedef size_t(__stdcall* TeamSetup)(int* param1, ULONG param2, void* param3, void** param4, DWORD32* ed, DWORD32* es);
-TeamSetup teamset_org = nullptr;
-size_t __stdcall TeamSetupDetour(int* param1, ULONG param2, void* param3, void** param4, DWORD32* ed, DWORD32* es) {
-    //param4 is teams requested by front end
-    lobby_slots = *((DWORD*)slots_addr);
-    size_t param_2 = *(param1 - 3);
-
-    size_t teams = 2;
-    int val = param1[1]; //player count
-    if ((param_2 & 0x600) == 0) {
-        if ((param_2 & 0x180) != 0) {
-            teams = lobby_slots;
-        }
-    }
-    else {
-        teams = lobby_slots / 2;
-    }
-    param4 = (void**)teams;
-
-    size_t out = teamset_org(param1, param2, param3, param4, ed, es);
-    return out;
-}
-
-DWORD jmpback_midobserv;
-void __declspec(naked) MidObserv() {
+void __declspec(naked) TeamSetupPatch() {
     __asm {
-        pop esi;
-        pop ebx;
-        jmp[jmpback_midobserv];
+        pushfd;
+        push eax;
+        push ecx;
+        push edx;
+
+        mov eax, dword ptr [slots_root];
+        mov eax, dword ptr [eax];
+        test eax, eax;
+        jz two_teams;
+        mov eax, dword ptr [eax + 0x17C];
+
+        mov ecx, dword ptr [esp + 0x14];
+        test ecx, ecx;
+        jz two_teams;
+        mov edx, dword ptr [ecx - 0x0C];
+
+        test edx, 0x600;
+        jnz split_teams;
+        test edx, 0x180;
+        jnz store_teams;
+
+    two_teams:
+        mov eax, 2;
+        jmp store_teams;
+
+    split_teams:
+        shr eax, 1;
+
+    store_teams:
+        mov dword ptr [esp + 0x20], eax;
+
+        pop edx;
+        pop ecx;
+        pop eax;
+        popfd;
+
+        push ebp;
+        mov ebp, esp;
+        and esp, 0xFFFFFFF8;
+        jmp dword ptr [team_setup_jmp_back];
     }
 }
 
-
-//ebp stays the same before and after call
-//just rewrite the whole function in here and maybe we figure it out
-typedef void(__stdcall *PopulatePlayerList)(void* tis);
-PopulatePlayerList pop_org = nullptr;
-void __stdcall PopulateDetour(void* tis) {
-    lobby_slots = *((DWORD*)slots_addr);
-    BYTE* src;
-    if (l_lobby != lobby_slots) {
-        if (lobby_slots < 8) {
-            src = (BYTE*)"\xc7\x45\xb4\x06\x00\x00\x00";
-            MemPatch(reinterpret_cast<BYTE*>(base + 0x9148c), src, 7);
-        }
-        else {
-            src = (BYTE*)"\xc7\x45\xb4\x08\x00\x00\x00";
-            MemPatch(reinterpret_cast<BYTE*>(base + 0x9148c), src, 7);
-        }
-    }
-
-    l_lobby = lobby_slots;
-    pop_org(tis);
-}
-//hooking GenerateSlotDropDowns
-typedef void(__stdcall *GenerateSlotDropdown)(int a1, int a2);
-GenerateSlotDropdown slotdrop_org = nullptr;
-void __stdcall SlotDropDetour(int a1, int a2) {
-    BYTE* src;
-    int slots = *((DWORD*)slots_addr);
-    if (slots < 8) {
-        src = (BYTE*)"\x80\x7D\x0C\x00\x74\x12\x80\x7D\x10\x00\x75\x0C";
-        MemPatch(reinterpret_cast<BYTE*>(base + 0x921D0), src, 12);
-        src = (BYTE*)"\xE8\xD7\x00\x00\x00";
-        MemPatch(reinterpret_cast<BYTE*>(base + 0x91EE6), src, 5);
-    }
-    else {
-        //00491EA2 - regular slot
-        //00491EC2 - closed slot
-        jmpback_midobserv = (base + 0x91EC2);
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x91EE6), (DWORD)MidObserv, 5);
-        NopPatch(reinterpret_cast<BYTE*>(base + 0x921D0), 12);
-
-    }
-    slotdrop_org(a1, a2);
-}
-
-
-
-//https://defuse.ca/online-x86-assembler.htm#disassembly
-//https://shell-storm.org/x86doc/
-
-//look into UpdateLobbyOnClick
-
-DWORD jmpbackaddr = 0;
-DWORD32 team_num = 0;
-
-typedef void(__stdcall *N1)(size_t param1, int* param2, size_t param3, int *param4);
-N1 funez = nullptr;
-
-void __declspec(naked) MidTeamSetupDetour() {
+void __declspec(naked) PopulateSlotsPatch() {
     __asm {
-        call funez;
-        push ebx;
-        mov ebx, dword ptr[esp + 0x244];
-        mov team_num, ebx;
-        pop ebx;
-        jmp[jmpbackaddr];
+        pushfd;
+        push eax;
+
+        mov eax, dword ptr [slots_root];
+        mov eax, dword ptr [eax];
+        test eax, eax;
+        jz six_slots;
+        cmp dword ptr [eax + 0x17C], 8;
+        jl six_slots;
+
+        mov dword ptr [ebp - 0x4C], 8;
+        jmp populate_done;
+
+    six_slots:
+        mov dword ptr [ebp - 0x4C], 6;
+
+    populate_done:
+        pop eax;
+        popfd;
+        jmp dword ptr [populate_slots_jmp_back];
     }
 }
 
+void __declspec(naked) ObserverDropdownPatch() {
+    __asm {
+        pushfd;
+        push eax;
 
-//try MapPreferencesPanel::invokecreatemaplist and MultiplayerLobbyMenuUpdate
+        mov eax, dword ptr [slots_root];
+        mov eax, dword ptr [eax];
+        test eax, eax;
+        jz use_observer_dropdown;
+        cmp dword ptr [eax + 0x17C], 8;
+        jl use_observer_dropdown;
+
+        pop eax;
+        popfd;
+        add esp, 8;
+        jmp dword ptr [closed_slot_path];
+
+    use_observer_dropdown:
+        pop eax;
+        popfd;
+        call dword ptr [observer_dropdown];
+        jmp dword ptr [observer_call_jmp_back];
+    }
+}
+
+void __declspec(naked) ObserverConditionPatch() {
+    __asm {
+        push eax;
+
+        mov eax, dword ptr [slots_root];
+        mov eax, dword ptr [eax];
+        test eax, eax;
+        jz check_original_conditions;
+        cmp dword ptr [eax + 0x17C], 8;
+        jge execute_observer_code;
+
+    check_original_conditions:
+        pop eax;
+        cmp byte ptr [ebp + 0x0C], 0;
+        je skip_observer_code;
+        cmp byte ptr [ebp + 0x10], 0;
+        jne skip_observer_code;
+        jmp dword ptr [observer_condition_execute];
+
+    execute_observer_code:
+        pop eax;
+        jmp dword ptr [observer_condition_execute];
+
+    skip_observer_code:
+        jmp dword ptr [observer_condition_skip];
+    }
+}
+
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH:
+        DisableThreadLibraryCalls(hModule);
         base = (DWORD)GetModuleHandleA("DOW2.exe");
-        //functions for detouring
-        teamset_org = reinterpret_cast<TeamSetup>(base + 0x39df40);
-        pop_org = reinterpret_cast<PopulatePlayerList>(base + 0x911c4);
-        slotdrop_org = reinterpret_cast<GenerateSlotDropdown>(base + 0x91D51);
+        slots_root = base + 0x00F35A78;
 
+        team_setup_jmp_back = base + 0x39DF46;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x39DF40), (DWORD)TeamSetupPatch, 6);
 
-        slots_addr = FindDMAAddy(base + 0x00F35A78, { 0x17C });
+        populate_slots_jmp_back = base + 0x91493;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x9148C), (DWORD)PopulateSlotsPatch, 7);
 
-        funez = reinterpret_cast<N1>(base + 0x39dc90);
-        jmpbackaddr = (base + 0x39e26a);
-        JmpPatch(reinterpret_cast<BYTE*>((base + 0x39e265)), (DWORD)MidTeamSetupDetour, 5);
+        observer_dropdown = base + 0x91FC2;
+        observer_call_jmp_back = base + 0x91EEB;
+        closed_slot_path = base + 0x91EC2;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x91EE6), (DWORD)ObserverDropdownPatch, 5);
 
-        
-      
+        observer_condition_execute = base + 0x921DC;
+        observer_condition_skip = base + 0x921E8;
+        JmpPatch(reinterpret_cast<BYTE*>(base + 0x921D0), (DWORD)ObserverConditionPatch, 12);
+        break;
 
-
-
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourAttach((void**)&teamset_org, TeamSetupDetour);
-        DetourAttach((void**)&pop_org, PopulateDetour);
-        DetourAttach((void**)&slotdrop_org, SlotDropDetour);
-        DetourTransactionCommit();
     case DLL_PROCESS_DETACH:
+        if (lpReserved == nullptr && base != 0) {
+            MemPatch(reinterpret_cast<BYTE*>(base + 0x921D0), observer_condition_original, sizeof(observer_condition_original));
+            MemPatch(reinterpret_cast<BYTE*>(base + 0x91EE6), observer_dropdown_original, sizeof(observer_dropdown_original));
+            MemPatch(reinterpret_cast<BYTE*>(base + 0x9148C), populate_slots_original, sizeof(populate_slots_original));
+            MemPatch(reinterpret_cast<BYTE*>(base + 0x39DF40), team_setup_original, sizeof(team_setup_original));
+        }
         break;
     }
     return TRUE;
 }
-

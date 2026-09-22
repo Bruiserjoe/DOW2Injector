@@ -53,10 +53,10 @@ extern Fatalf Fatal_f;
     // -convert patches to use signature scanning instead of static offset 
     // -remove all uses of detours
         // -MiscFixes X
-        // -Cullsphere
+        // -Cullsphere X
         // -8p-replay-fix X
         // -GamemodePatch X
-        // -EightPlayerFFAPatch
+        // -EightPlayerFFAPatch X
         // -ShellPatch X
 
 //current todo 1.9.1
