@@ -12,7 +12,6 @@
 #include <Psapi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <detours.h>
 
 typedef void(__cdecl *Timestampedf)(const char*, ...);
 typedef void(__cdecl *Fatalf)(const char*, ...);
@@ -43,8 +42,7 @@ extern Fatalf Fatal_f;
 
 //curent todo 1.9
     // -fatalf from config file, IE check if the proper launch options are in use X
-    // -borderless fullscreen patch 
-    //  -probably modify the platform.dll to do this or decompile whole thing (psycho)
+    // -borderless fullscreen patch X
     // -merge rust patch (https://github.com/RipleyTom/rustpatch) X
     // -fix crashes on gamemode patch X
     // -change how cullsphere patch works, rip out algorithm solver, just add options for max curve etc X

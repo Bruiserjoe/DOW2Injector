@@ -90,7 +90,8 @@ void __declspec(naked) MidCfgLoad() {
 
 //https://github.com/maximumgame/DOW2CoreFix/blob/master/DOW2CoreFix/main.cpp
 //via Maximumgame
-static void (WINAPI* RealGetSystemInfo)(LPSYSTEM_INFO info) = GetSystemInfo;
+typedef void(WINAPI* GetSystemInfoFn)(LPSYSTEM_INFO info);
+static GetSystemInfoFn RealGetSystemInfo = nullptr;
 
 void WINAPI GetSystemInfoDetour(LPSYSTEM_INFO info)
 {
@@ -101,13 +102,54 @@ void WINAPI GetSystemInfoDetour(LPSYSTEM_INFO info)
         info->dwNumberOfProcessors = 12;
 }
 
+// redirect every import table entry of loaded modules that resolves to target
+void PatchLoadedImports(DWORD target, DWORD replacement) {
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
+    if (snap == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    MODULEENTRY32 entry{};
+    entry.dwSize = sizeof(entry);
+    for (BOOL ok = Module32First(snap, &entry); ok; ok = Module32Next(snap, &entry)) {
+        BYTE* mod = entry.modBaseAddr;
+        auto dos = reinterpret_cast<IMAGE_DOS_HEADER*>(mod);
+        auto nt = reinterpret_cast<IMAGE_NT_HEADERS*>(mod + dos->e_lfanew);
+        IMAGE_DATA_DIRECTORY dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+        if (!dir.VirtualAddress) {
+            continue;
+        }
+        for (auto imp = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(mod + dir.VirtualAddress); imp->Name; imp++) {
+            for (auto thunk = reinterpret_cast<DWORD*>(mod + imp->FirstThunk); *thunk; thunk++) {
+                if (*thunk == target) {
+                    MemPatch(reinterpret_cast<BYTE*>(thunk), reinterpret_cast<BYTE*>(&replacement), 4);
+                }
+            }
+        }
+    }
+    CloseHandle(snap);
+}
+
 bool Init(HINSTANCE hModule)
 {
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
     //hook GetSystemInfo
-    DetourAttach(&(PVOID&)RealGetSystemInfo, GetSystemInfoDetour);
-    DetourTransactionCommit();
+	HMODULE kernel32 = GetModuleHandleA("kernel32.dll");
+	if (!kernel32) {
+		return true;
+	}
+    BYTE* stub = reinterpret_cast<BYTE*>(GetProcAddress(kernel32, "GetSystemInfo"));
+    if (!stub) {
+        return true;
+    }
+    // kernel32's export is a "jmp [kernelbase!GetSystemInfo]" stub; redirect the stub itself
+    // so every caller is hooked, and keep the jump target as the original
+    if (stub[0] == 0xFF && stub[1] == 0x25) {
+        RealGetSystemInfo = **reinterpret_cast<GetSystemInfoFn**>(stub + 2);
+        JmpPatch(stub, (DWORD)GetSystemInfoDetour, 6);
+    }
+    else {
+        RealGetSystemInfo = reinterpret_cast<GetSystemInfoFn>(stub);
+        PatchLoadedImports((DWORD)stub, (DWORD)GetSystemInfoDetour);
+    }
     return true;
 }
 

@@ -184,42 +184,72 @@ size_t getIndex(std::string line) {
 
 typedef bool(__stdcall* PlatGetOption)(const char* option, char* str, unsigned int size);
 PlatGetOption plat_getoption = nullptr;
+
 void readListConfig(std::string path) {
+    map_size = 0;
+    gamemodepatch_maps_count = 0x4C;
+    numberofmap_lists = 0;
+    numberofmaps_total = 6;
+
+    for (size_t i = 0; i < 100; i++) {
+        map_strings[i].clear();
+        map_lists[i] = {};
+        unique_map_lists[i] = {};
+    }
+
     std::ifstream file;
     file.open(path);
     if (!file) {
-        gamemodepatch_maps_count = 0x4C;
         return;
     }
+
     std::string line;
     size_t count = 0;
+    size_t unique_count = 0;
     DWORD32 cur_offset = 76;
-    while (getline(file, line)) {
+    while (count < 100 && getline(file, line)) {
         std::string list = getList(line);
         if (list.compare("default") != 0) {
             map_strings[count] = list;
-            map_lists[count] = { getIndex(line), map_strings[count].c_str(), cur_offset };
-            bool not_unique = false;
-            for (size_t i = 0; i < gamemodepatch_maps_count; i++) {
+            DWORD32 map_offset = cur_offset;
+            bool found = false;
+
+            for (size_t i = 0; i < unique_count; i++) {
                 if (strcmp(unique_map_lists[i].path, list.c_str()) == 0) {
-                    not_unique = true;
+                    map_offset = unique_map_lists[i].map_offset;
+                    found = true;
                     break;
                 }
             }
-            if (!not_unique) {
-                map_lists[count] = { getIndex(line), map_strings[count].c_str(), cur_offset };
-                unique_map_lists[gamemodepatch_maps_count] = {getIndex(line), map_strings[count].c_str(), cur_offset };
-                gamemodepatch_maps_count++;
-                numberofmap_lists++;
-                numberofmaps_total++;
+
+            if (!found) {
+                if (unique_count >= 100) {
+                    break;
+                }
+
+                unique_map_lists[unique_count] = {
+                    getIndex(line),
+                    map_strings[count].c_str(),
+                    cur_offset
+                };
+                map_offset = cur_offset;
+                unique_count++;
                 cur_offset += 12;
             }
+
+            map_lists[count] = {
+                getIndex(line),
+                map_strings[count].c_str(),
+                map_offset
+            };
             count++;
-            // Timestampedtracef("GAMEMODE PATCH: Successfully created new map list!");
         }
     }
+
     map_size = count;
-    gamemodepatch_maps_count = 0x48 + (gamemodepatch_maps_count * 12) + 4;
+    numberofmap_lists = static_cast<DWORD32>(unique_count);
+    numberofmaps_total = 6 + static_cast<DWORD32>(unique_count);
+    gamemodepatch_maps_count = 0x4C + (unique_count * 12);
     // think the four bytes right after the first 72 are used for smth so fucking smth, so these are going unused
     /*BYTE ss[3] = {(BYTE)'\x83', (BYTE)'\xFB', (BYTE)'\x06'};
     ss[2] = numberofmap_lists;
@@ -227,7 +257,6 @@ void readListConfig(std::string path) {
     BYTE ss2[2] = { (BYTE)'\x6A', (BYTE)'\x06' };
     ss2[1] = numberofmap_lists;
     // MemPatch(reinterpret_cast<BYTE*>(base + 0x7A36C4), ss2, 2);*/
-    numberofmap_lists = numberofmap_lists - 6;
     file.close();
 }
 char mod1[0x200];
@@ -238,6 +267,7 @@ extern "C" void readMapList() {
     modu = std::string(mod1);
     modu = modu + ".gamemodes";
     readListConfig(modu);
+    std::memset(map, 0, sizeof(map));
     GamemodeMap::readConfig(modu, map);
 }
 
@@ -274,7 +304,9 @@ typedef void(__stdcall* MapListFreeSmth)(int a1);
 MapListFreeSmth MapListFree = nullptr;
 DWORD32 MapListVerify = 0;
 DWORD32 MapListFix = 0;
+DWORD32 MapListFinalize = 0;
 DWORD32 MapListFreeSimple = 0;
+DWORD32 MapListDestructor = 0;
 
 DWORD32 jmpback_detourMapLoad = 0;
 size_t mapOffsetStart = 0x48;
@@ -294,6 +326,9 @@ void __declspec(naked) detourMapLoad() {
         add ecx, eax;
         // get char str ptr
         mov ecx, [ecx + 0x4];
+        mov dword ptr[edi], 0;
+        mov dword ptr[edi + 0x4], 0;
+        mov dword ptr[edi + 0x8], 0;
         push edi;
         push ecx;
         call LoadMapFolderSimple;
@@ -315,12 +350,58 @@ void __declspec(naked) detourMapLoad() {
         jnz free_loop;
     skip_free_loop:
         mov [edi + 0x4], ecx;
+        push ebx;
+        push esi;
+        push edi;
+        mov eax, edi;
+        mov esi, [edi + 0x4];
+        mov edi, [edi];
+        push 0;
+        call MapListFinalize;
+        pop edi;
+        pop esi;
+        pop ebx;
         add ebx, 0x1;
         add edi, 0xC;
         jmp load_map_loop;
     exit_loop:
         xor ebx, ebx;
         jmp[jmpback_detourMapLoad];
+    }
+}
+
+typedef void(__thiscall* DestroyMapList)(void* map_list);
+
+void __stdcall DestroyCustomMapLists(void* container) {
+    if (!container || !MapListDestructor) {
+        return;
+    }
+
+    DestroyMapList destroy_map_list =
+        reinterpret_cast<DestroyMapList>(MapListDestructor);
+    BYTE* custom_map_list =
+        reinterpret_cast<BYTE*>(container) +
+        0x4C +
+        (numberofmap_lists * 0x0C);
+
+    for (DWORD32 i = numberofmap_lists; i > 0; i--) {
+        custom_map_list -= 0x0C;
+        destroy_map_list(custom_map_list);
+    }
+}
+
+DWORD32 jmpback_detourMapDestruct = 0;
+void __declspec(naked) detourMapDestruct() {
+    __asm {
+        pushfd;
+        pushad;
+        push edi;
+        call DestroyCustomMapLists;
+        popad;
+        popfd;
+
+        push dword ptr[MapListDestructor];
+        jmp[jmpback_detourMapDestruct];
     }
 }
 
@@ -378,7 +459,14 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         MapListCopy = base + 0x7C351;
         MapListVerify = base + 0x7A5E20;
         MapListFix = base + 0x7A5B40;
-        
+        MapListFinalize = base + 0x7A5C10;
+        MapListDestructor = base + 0x43AA4;
+
+        jmpback_detourMapDestruct = base + 0x7A56AE;
+        JmpPatch(
+            reinterpret_cast<BYTE*>(base + 0x7A56A9),
+            (DWORD)detourMapDestruct,
+            5);
 
         g_map = map;
         un_map_lists_ptr = unique_map_lists;
