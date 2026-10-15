@@ -1,5 +1,6 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
-#include "framework.h"
+#include "Injector.h"
+#include "PluginExports.h"
 #include "Exports.h"
 DWORD base;
 HMODULE plat;

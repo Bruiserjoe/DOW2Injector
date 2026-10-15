@@ -49,6 +49,7 @@ extern Fatalf Fatal_f;
     // -move all mods over to using timestampedf for error logging X
     // -immediate dll injection option X
     // -convert patches to use signature scanning instead of static offset 
+    //      - move mempatching/sigscanning to imports from this dll
     // -remove all uses of detours
         // -MiscFixes X
         // -Cullsphere X

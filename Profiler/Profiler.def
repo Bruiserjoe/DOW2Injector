@@ -1,0 +1,14 @@
+LIBRARY "PROFILER"
+
+EXPORTS
+    ??0CallGraph@@QAE@PBD@Z             @1
+    ??1CallGraph@@QAE@XZ                @2
+    ??4CallGraph@@QAEAAV0@ABV0@@Z       @3
+    ?DumpLog@CallGraph@@QAEXXZ          @4
+    ?MeasureCurrentCount@Profile@@YG_KXZ @5
+    ?MeasureFrequency@Profile@@YG_KXZ   @6
+    ?Visit@CallGraph@@QAEXXZ            @7
+    MemPatch                             @100
+    NopPatch                             @101
+    JmpPatch                             @102
+    SigScan                              @103

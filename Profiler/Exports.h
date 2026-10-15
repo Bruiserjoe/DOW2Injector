@@ -9,24 +9,18 @@ CREDITS to maximumgame on github
 
 namespace Profile {
 
-	unsigned __int64 EXPORT MeasureCurrentCount()
-	{
-		return 0;
-	}
-
-	unsigned __int64 EXPORT MeasureFrequency()
-	{
-		return 0;
-	}
+	unsigned __int64 EXPORT __stdcall MeasureCurrentCount();
+	unsigned __int64 EXPORT __stdcall MeasureFrequency();
 };
 
 
 class EXPORT CallGraph
 {
 public:
-	__thiscall CallGraph(const char* a) {};
-	__thiscall ~CallGraph() {};
+	__thiscall CallGraph(const char* a);
+	__thiscall ~CallGraph();
+	CallGraph& __thiscall operator=(const CallGraph& other);
 
-	void __thiscall DumpLog() {};
-	void virtual __thiscall Visit() {};
+	void __thiscall DumpLog();
+	void __thiscall Visit();
 };

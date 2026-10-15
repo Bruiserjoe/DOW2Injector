@@ -77,9 +77,15 @@ std::string lookupShell(std::string race_name) {
 HMODULE mscvr80;
 
 DWORD loadshells_jmpback = 0;
+DWORD loadshells_patch = 0;
 DWORD operator_new = 0;
 DWORD sf_widget_c = 0;
 DWORD add_to_dic = 0;
+const char* shell_sm = nullptr;
+const char* shell_eld = nullptr;
+const char* shell_tyr = nullptr;
+const char* shell_csm = nullptr;
+const char* shell_ig = nullptr;
 
 
 int index_i = 0;
@@ -203,6 +209,8 @@ void __declspec(naked) TestMidDrawShell() {
 
 
 DWORD shellget_jmpback = 0;
+DWORD shellget_patch = 0;
+DWORD shell_manager_slot = 0;
 DWORD* temp_shell_target = 0;
 //cur_shell_load is same offset so it draws the same fuckign thing since it uses the offset omfg, I think this is right fufcucjusiih
 void __declspec(naked) MidShellGet() {
@@ -210,7 +218,8 @@ void __declspec(naked) MidShellGet() {
         push ecx;
         push edx;
         push eax;
-        mov ecx, dword ptr ds : 0x1335720;
+        mov ecx, dword ptr [shell_manager_slot];
+        mov ecx, dword ptr [ecx];
         mov edx, [ecx + 0x8];
         mov eax, [edx + 0x4];
         mov eax, dword ptr[eax + 0xc8];
@@ -249,11 +258,12 @@ void __declspec(naked) MidShellGet() {
         pop edx;
     }
     __asm {
-        push 0x1115304
+        push dword ptr [shell_ig]
         jmp[shellget_jmpback];
     }
 }
 DWORD midshell_jmpback = 0;
+DWORD midshell_patch = 0;
 void __declspec(naked) MidShellSelect() {
     __asm {
         push edi;
@@ -288,6 +298,7 @@ void __declspec(naked) MidShellSelect() {
 DWORD v32 = 0;
 DWORD v17 = 0;
 DWORD v18 = 0;
+DWORD drawshell_patch = 0;
 
 
 
@@ -348,11 +359,11 @@ void loadConfig(std::string path) {
 
     file.close();
     size_before_org = temp_shells.size();
-    addShell((const char*)base + 0xD15278, temp_shells); //sm
-    addShell((const char*)base + 0xD15304, temp_shells);//ig
-    addShell((const char*)base + 0xD15298, temp_shells); //eld
-    addShell((const char*)base + 0xD152BC, temp_shells); //tyr
-    addShell((const char*)base + 0xD152E0, temp_shells); //csm
+    addShell(shell_sm, temp_shells);
+    addShell(shell_ig, temp_shells);
+    addShell(shell_eld, temp_shells);
+    addShell(shell_tyr, temp_shells);
+    addShell(shell_csm, temp_shells);
     // do the raw ptrs now
     raw_shell* r_shells = new raw_shell[temp_shells.size()];
     for (size_t i = 0; i < temp_shells.size(); i++) {
@@ -364,6 +375,169 @@ void loadConfig(std::string path) {
     }
     shell_names = r_shells;
     shell_map_size = temp_shells.size();
+}
+
+#ifdef DOW2_SIGSCAN
+static size_t GetModuleImageSize(HMODULE module) {
+    if (!module) {
+        return 0;
+    }
+    const auto dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(module);
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) {
+        return 0;
+    }
+    const auto nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(
+        reinterpret_cast<const BYTE*>(module) + dos->e_lfanew);
+    return nt->Signature == IMAGE_NT_SIGNATURE ? nt->OptionalHeader.SizeOfImage : 0;
+}
+
+static bool ScanUnique(
+    BYTE* module,
+    size_t module_size,
+    const char* pattern,
+    const char* mask,
+    DWORD* address) {
+    const SigScanResult first = SigScan(module, module_size, pattern, mask);
+    if (!first.found) {
+        return false;
+    }
+    const size_t next_offset = first.address - reinterpret_cast<DWORD>(module) + 1;
+    if (next_offset < module_size) {
+        const SigScanResult second =
+            SigScan(module + next_offset, module_size - next_offset, pattern, mask);
+        if (second.found) {
+            return false;
+        }
+    }
+    *address = first.address;
+    return true;
+}
+
+static DWORD ResolveRelativeCall(DWORD instruction) {
+    return instruction + 5 + *reinterpret_cast<int32_t*>(instruction + 1);
+}
+
+static bool IsModuleAddress(DWORD address, size_t size, size_t module_size) {
+    return address >= base && address + size >= address && address + size <= base + module_size;
+}
+
+static bool ResolveAddresses() {
+    BYTE* module = reinterpret_cast<BYTE*>(base);
+    const size_t module_size = GetModuleImageSize(reinterpret_cast<HMODULE>(base));
+    DWORD load_continuation = 0;
+    DWORD draw_continuation = 0;
+
+    static const char load_pattern[] =
+        "\x68\xC8\x03\x00\x00\xE8\x00\x00\x00\x00\x8B\xF0\x83\xC4\x04"
+        "\x89\x74\x24\x14\x85\xF6\xC6\x84\x24\xA4\x02\x00\x00\x5C\x74"
+        "\x00\xBA\x00\x00\x00\x00\x8B\xC5\xE8\x00\x00\x00\x00\xEB\x00"
+        "\x33\xC0\x55\x8B\xF0\xC6\x84\x24\xA8\x02\x00\x00\x00\xE8\x00"
+        "\x00\x00\x00";
+    static const char load_mask[] =
+        "xxxxxx????xxxxxxxxxxxxxxxxxxxx?x????xxx????x?xxxxxxxxxxxxxx????";
+    static const char load_continuation_pattern[] =
+        "\x68\xD8\x03\x00\x00\xE8\x00\x00\x00\x00\x83\xC4\x04\x89\x44"
+        "\x24\x14\x85\xC0\xC6\x84\x24\xA4\x02\x00\x00\x61\x74\x00\x55"
+        "\x50\xBA\x00\x00\x00\x00\xE8\x00\x00\x00\x00";
+    static const char load_continuation_mask[] =
+        "xxxxxx????xxxxxxxxxxxxxxxxxx?xxx????x????";
+    static const char shellget_pattern[] =
+        "\x68\x00\x00\x00\x00\x8D\x54\x24\x14\x52\xFF\xD7\x8B\xC8\xFF"
+        "\xD3\x8B\x00\x8D\x4E\x44\x51\x50\xE8\x00\x00\x00\x00\x68\x00"
+        "\x00\x00\x00";
+    static const char shellget_mask[] = "x????xxxxxxxxxxxxxxxxxxx????x????";
+    static const char shellselect_pattern[] =
+        "\x8B\x4E\x50\x32\xC0\xE8\x00\x00\x00\x00\x8B\x0D\x00\x00\x00"
+        "\x00\x8B\x51\x08\x8B\x42\x04\x85\xC0\x0F\x84\x00\x00\x00\x00"
+        "\x8B\x80\xC8\x00\x00\x00";
+    static const char shellselect_mask[] = "xxxxxx????xx????xxxxxxxxxx????xxxxxx";
+    static const char drawshell_pattern[] =
+        "\x68\xFF\x00\x00\x00\x83\xC0\x70\x68\x00\x00\x00\x00\x50\xFF"
+        "\x15\x00\x00\x00\x00\x83\xC4\x0C\x85\xC0\x75\x00\x8B\x6D\x00"
+        "\x85\xED\x74\x00\xB0\x01\x38\x85\x09\x02\x00\x00\x0F\x84\x00"
+        "\x00\x00\x00";
+    static const char drawshell_mask[] =
+        "xxxxxxxxx????xxx????xxxxxx?xxxxxx?xxxxxxxxxx????";
+    static const char draw_continuation_pattern[] =
+        "\x8B\x44\x24\x10\xD9\x80\xBC\x09\x00\x00\xD9\x5E\x24\xD9\x80"
+        "\xCC\x09\x00\x00\xD9\x5E\x2C\x68\x00\x00\x00\x00\x8D\x4C\x24"
+        "\x14\x51";
+    static const char draw_continuation_mask[] = "xxxxxxxxxxxxxxxxxxxxxxx????xxxxx";
+
+    if (!module_size ||
+        !ScanUnique(module, module_size, load_pattern, load_mask, &loadshells_patch) ||
+        !ScanUnique(module, module_size, load_continuation_pattern,
+            load_continuation_mask, &load_continuation) ||
+        !ScanUnique(module, module_size, shellget_pattern, shellget_mask, &shellget_patch) ||
+        !ScanUnique(module, module_size, shellselect_pattern, shellselect_mask, &midshell_patch) ||
+        !ScanUnique(module, module_size, drawshell_pattern, drawshell_mask, &drawshell_patch) ||
+        !ScanUnique(module, module_size, draw_continuation_pattern,
+            draw_continuation_mask, &draw_continuation)) {
+        return false;
+    }
+
+    if (*reinterpret_cast<BYTE*>(loadshells_patch) != 0x68 ||
+        *reinterpret_cast<DWORD*>(loadshells_patch + 1) != 0x3C8 ||
+        *reinterpret_cast<BYTE*>(shellget_patch) != 0x68 ||
+        memcmp(reinterpret_cast<void*>(midshell_patch), "\x8B\x4E\x50\x32\xC0\xE8", 6) != 0 ||
+        memcmp(reinterpret_cast<void*>(drawshell_patch), "\x68\xFF\x00\x00\x00", 5) != 0) {
+        return false;
+    }
+
+    loadshells_jmpback = load_continuation;
+    operator_new = ResolveRelativeCall(loadshells_patch + 5);
+    shell_sm = reinterpret_cast<const char*>(*reinterpret_cast<DWORD*>(loadshells_patch + 0x20));
+    sf_widget_c = ResolveRelativeCall(loadshells_patch + 0x26);
+    add_to_dic = ResolveRelativeCall(loadshells_patch + 0x3A);
+    shell_eld = reinterpret_cast<const char*>(*reinterpret_cast<DWORD*>(loadshells_patch + 0x5F));
+    shell_tyr = reinterpret_cast<const char*>(*reinterpret_cast<DWORD*>(loadshells_patch + 0x9E));
+    shell_csm = reinterpret_cast<const char*>(*reinterpret_cast<DWORD*>(loadshells_patch + 0xDD));
+    shell_ig = reinterpret_cast<const char*>(*reinterpret_cast<DWORD*>(loadshells_patch + 0x11C));
+
+    shellget_jmpback = shellget_patch + 5;
+    const DWORD shellget_ig = *reinterpret_cast<DWORD*>(shellget_patch + 1);
+    DrawUIElement = ResolveRelativeCall(shellget_patch + 0x17);
+
+    midshell_jmpback = midshell_patch + 10;
+    SelectUIElement = ResolveRelativeCall(midshell_patch + 5);
+    shell_manager_slot = *reinterpret_cast<DWORD*>(midshell_patch + 0x0C);
+
+    if (*reinterpret_cast<WORD*>(drawshell_patch + 0x2A) != 0x840F) {
+        return false;
+    }
+    test_jmpback =
+        drawshell_patch + 0x30 + *reinterpret_cast<int32_t*>(drawshell_patch + 0x2C);
+
+    const DWORD derived_addresses[] = {
+        loadshells_jmpback, operator_new, reinterpret_cast<DWORD>(shell_sm),
+        sf_widget_c, add_to_dic, reinterpret_cast<DWORD>(shell_eld),
+        reinterpret_cast<DWORD>(shell_tyr), reinterpret_cast<DWORD>(shell_csm),
+        reinterpret_cast<DWORD>(shell_ig), shellget_jmpback, DrawUIElement,
+        midshell_jmpback, SelectUIElement, shell_manager_slot, test_jmpback
+    };
+    for (DWORD address : derived_addresses) {
+        if (!IsModuleAddress(address, 1, module_size)) {
+            return false;
+        }
+    }
+    return shellget_ig == reinterpret_cast<DWORD>(shell_ig) &&
+        test_jmpback == draw_continuation &&
+        strcmp(shell_sm, "/waaagh_meter_shell/meter_mc/sm") == 0 &&
+        strcmp(shell_eld, "/waaagh_meter_shell/meter_mc/eld") == 0 &&
+        strcmp(shell_tyr, "/waaagh_meter_shell/meter_mc/tyr") == 0 &&
+        strcmp(shell_csm, "/waaagh_meter_shell/meter_mc/csm") == 0 &&
+        strcmp(shell_ig, "/waaagh_meter_shell/meter_mc/ig") == 0;
+}
+#endif
+
+static BOOL FailInitialization(const char* message) {
+    if (Fatal_f) {
+        Fatal_f("%s", message);
+    }
+    else {
+        MessageBoxA(nullptr, message, "ShellPatch", MB_OK | MB_ICONERROR);
+    }
+    return FALSE;
 }
 
 //figure out how to properly allocate data in exe, apparently need to add 4 to esp, that fixes crash wtf, ig because of allocate?
@@ -392,6 +566,34 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             Timestampedtracef = reinterpret_cast<Timestampedf>(GetProcAddress(debug, MAKEINTRESOURCEA(50)));
             Fatal_f = reinterpret_cast<Fatalf>(GetProcAddress(debug, MAKEINTRESOURCEA(31)));
         }
+        if (!base || !plat_getoption || !Timestampedtracef) {
+            return FailInitialization("Shell Patch: required game modules or exports were not found.");
+        }
+#ifdef DOW2_SIGSCAN
+        if (!ResolveAddresses()) {
+            return FailInitialization("Shell Patch: required DOW2.exe signatures were not found uniquely.");
+        }
+#else
+        shell_sm = reinterpret_cast<const char*>(base + 0xD15278);
+        shell_ig = reinterpret_cast<const char*>(base + 0xD15304);
+        shell_eld = reinterpret_cast<const char*>(base + 0xD15298);
+        shell_tyr = reinterpret_cast<const char*>(base + 0xD152BC);
+        shell_csm = reinterpret_cast<const char*>(base + 0xD152E0);
+        shell_manager_slot = 0x01335720;
+        DrawUIElement = base + 0x6D39C0;
+        SelectUIElement = base + 0x285450;
+        loadshells_patch = base + 0x73C18A;
+        loadshells_jmpback = base + 0x73C2C5;
+        operator_new = base + 0xB879D0;
+        sf_widget_c = base + 0x285050;
+        add_to_dic = base + 0x282760;
+        midshell_patch = base + 0x76D023;
+        midshell_jmpback = base + 0x76D02D;
+        shellget_patch = base + 0x76CF6F;
+        shellget_jmpback = base + 0x76CF74;
+        drawshell_patch = base + 0x76D0A7;
+        test_jmpback = base + 0x76D18F;
+#endif
         //getting the module name
         ret = plat_getoption("modname", mod1, 0x200);
         modu = std::string(mod1);
@@ -411,13 +613,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         sub_AD3990 = base + 0x6D3990;
         sf_widg = reinterpret_cast<CreateSFWidget>(base + 0x285050);
         sfw = (base + 0x285050);
-        //testing for the waaagh meter patch
-        DrawUIElement = base + 0x6D39C0;
-        SelectUIElement = base + 0x285450;
-        if (base == 0) {
-            Fatal_f("Shell Patch: Base is zero for some reason! WHAT THE FUCK!");
-            return FALSE;
-        }
         //sh_map.addShell("/waaagh_meter_shell/meter_mc/gn");
         //sh_map.addShell("/waaagh_meter_shell/meter_mc/nec");
        /* sh_map.addShell((const char*)base + 0xD15278); //sm
@@ -430,28 +625,37 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         //new patch stuff
         //used
         addToDic = base + 0x282760;
-        
-        loadshells_jmpback = base + 0x73C2C5;
-        operator_new = base + 0xB879D0;
-        sf_widget_c = base + 0x285050;
-        add_to_dic = base + 0x282760;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x73C18A), (DWORD)MidLoadShells, 5);
-        
-        //new version
-        
-        midshell_jmpback = base + 0x76D02D;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D023), (DWORD)MidShellSelect, 10);
-
-        shellget_jmpback = base + 0x76CF74;
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76CF6F), (DWORD)MidShellGet, 5);
-        
-
-        test_jmpback = (base + 0x76D18F);
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x76D0A7), (DWORD)TestMidDrawShell, 5);
 
         mscvr80 = GetModuleHandleA("MSVCR80");
         if (mscvr80) {
-            operator_new = reinterpret_cast<DWORD>(GetProcAddress(mscvr80, MAKEINTRESOURCEA(15))); //new in the dll loaded by dow2
+            const DWORD resolved_operator_new =
+                reinterpret_cast<DWORD>(GetProcAddress(mscvr80, MAKEINTRESOURCEA(15)));
+#ifdef DOW2_SIGSCAN
+            if (resolved_operator_new) {
+                operator_new = resolved_operator_new;
+            }
+#else
+            operator_new = resolved_operator_new;
+#endif
+        }
+        
+        if (!JmpPatch(reinterpret_cast<BYTE*>(loadshells_patch), (DWORD)MidLoadShells, 5)) {
+            return FailInitialization("Shell Patch: failed to install shell-loading hook.");
+        }
+        
+        //new version
+        
+        if (!JmpPatch(reinterpret_cast<BYTE*>(midshell_patch), (DWORD)MidShellSelect, 10)) {
+            return FailInitialization("Shell Patch: failed to install shell-selection hook.");
+        }
+
+        if (!JmpPatch(reinterpret_cast<BYTE*>(shellget_patch), (DWORD)MidShellGet, 5)) {
+            return FailInitialization("Shell Patch: failed to install shell-get hook.");
+        }
+        
+
+        if (!JmpPatch(reinterpret_cast<BYTE*>(drawshell_patch), (DWORD)TestMidDrawShell, 5)) {
+            return FailInitialization("Shell Patch: failed to install shell-draw hook.");
         }
 
         util = GetModuleHandleA("Util.dll");
@@ -467,4 +671,3 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     }
     return TRUE;
 }
-

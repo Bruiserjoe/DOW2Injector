@@ -1,0 +1,7 @@
+C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\Config.cpp;C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\SigScan\Config.obj
+C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\DLLInjection.cpp;C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\SigScan\DLLInjection.obj
+C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\dllmain.cpp;C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\SigScan\dllmain.obj
+C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\Exports.cpp;C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\SigScan\Exports.obj
+C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\PlayerCFG.cpp;C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\SigScan\PlayerCFG.obj
+C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\PluginExports.cpp;C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\SigScan\PluginExports.obj
+C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\Process.cpp;C:\Users\Joe\ReverseEngineering\DOW2Injector\Profiler\SigScan\Process.obj

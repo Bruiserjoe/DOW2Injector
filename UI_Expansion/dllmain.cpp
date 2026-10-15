@@ -14,28 +14,163 @@ BYTE newValue9[] = { 0x17, 0x58 }; //value for 5976
 BYTE newValue10[] = { 0x01 }; //value for 1
 BYTE newValueTest[] = { 0xFF }; //value for testing
 
+#ifdef DOW2_SIGSCAN
+namespace {
+    size_t GetModuleImageSize(HMODULE module) {
+        if (!module) {
+            return 0;
+        }
+        const IMAGE_DOS_HEADER* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(module);
+        if (dos->e_magic != IMAGE_DOS_SIGNATURE) {
+            return 0;
+        }
+        const IMAGE_NT_HEADERS* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(
+            reinterpret_cast<const BYTE*>(module) + dos->e_lfanew);
+        if (nt->Signature != IMAGE_NT_SIGNATURE) {
+            return 0;
+        }
+        return nt->OptionalHeader.SizeOfImage;
+    }
 
-void InitPatch()
+    bool FailPatch(const char* reason) {
+        std::string message = "[UI_Expansion] SigScan initialization failed: ";
+        message += reason;
+        message += "\n";
+        OutputDebugStringA(message.c_str());
+        return false;
+    }
+
+    bool FindUnique(
+        HMODULE module,
+        size_t module_size,
+        const char* name,
+        const char* pattern,
+        const char* mask,
+        DWORD* address) {
+        SigScanResult result = SigScan(reinterpret_cast<BYTE*>(module), module_size, pattern, mask);
+        if (!result.found) {
+            return FailPatch(name);
+        }
+
+        BYTE* module_start = reinterpret_cast<BYTE*>(module);
+        BYTE* next = reinterpret_cast<BYTE*>(result.address) + 1;
+        size_t remaining = module_size - static_cast<size_t>(next - module_start);
+        if (SigScan(next, remaining, pattern, mask).found) {
+            std::string duplicate = name;
+            duplicate += " matched more than once";
+            return FailPatch(duplicate.c_str());
+        }
+
+        *address = result.address;
+        return true;
+    }
+
+    bool HasByte(DWORD address, BYTE expected) {
+        return *reinterpret_cast<const BYTE*>(address) == expected;
+    }
+}
+#endif
+
+bool ApplyPatch(DWORD address, const BYTE* value, size_t size, const char* name) {
+#ifdef DOW2_SIGSCAN
+    if (!MemPatch(reinterpret_cast<BYTE*>(address), value, size)) {
+        return FailPatch(name);
+    }
+#else
+    MemPatch(reinterpret_cast<BYTE*>(address), value, size);
+#endif
+    return true;
+}
+
+bool InitPatch()
 {
     base = (DWORD)GetModuleHandleA("DOW2.exe");
-    if (base)
-    {
+    if (!base) {
+#ifdef DOW2_SIGSCAN
+        return FailPatch("DOW2.exe is not loaded");
+#else
+        return true;
+#endif
+    }
+
+#ifdef DOW2_SIGSCAN
+    HMODULE module = reinterpret_cast<HMODULE>(base);
+    size_t module_size = GetModuleImageSize(module);
+    if (!module_size) {
+        return FailPatch("invalid DOW2.exe image");
+    }
+
+    DWORD abilities_anchor = 0;
+    DWORD global_abilities_anchor = 0;
+    DWORD mini_portraits_anchor = 0;
+    DWORD mini_portrait_loop_anchor = 0;
+    DWORD build_queue_anchor = 0;
+    DWORD observer_anchor = 0;
+
+    if (!FindUnique(module, module_size, "abilities",
+        "\x8B\x44\x24\x24\x83\xC0\x01\x83\xF8\x07\x89\x44\x24\x24\x0F\x8C\x00\x00\x00\x00\x68\xC8\x03\x00\x00",
+        "xxxxxxxxxxxxxxxx????xxxxx", &abilities_anchor)
+        || !FindUnique(module, module_size, "global abilities",
+            "\x8B\x44\x24\x24\x83\xC0\x01\x83\xF8\x05\x89\x44\x24\x24\x0F\x8C\x00\x00\x00\x00\x33\xDB\x8D\x9B\x00\x00\x00\x00",
+            "xxxxxxxxxxxxxxxx????xxxxxxxx", &global_abilities_anchor)
+        || !FindUnique(module, module_size, "mini portraits",
+            "\x8B\x44\x24\x24\x83\xC0\x01\x83\xF8\x09\x89\x44\x24\x24\x0F\x8C\x00\x00\x00\x00\x68\xC8\x03\x00\x00",
+            "xxxxxxxxxxxxxxxx????xxxxx", &mini_portraits_anchor)
+        || !FindUnique(module, module_size, "mini portrait loop",
+            "\x89\x30\x89\x48\x04\x83\xC7\x01\x83\xFF\x08\x89\x01\x89\x46\x04\x7C\x00\x8B\x4C\x24\x18",
+            "xxxxxxxxxxxxxxxxx?xxxx", &mini_portrait_loop_anchor)
+        || !FindUnique(module, module_size, "build queue",
+            "\x8B\xCF\xE8\x00\x00\x00\x00\x83\xC3\x01\x83\xFB\x05\x0F\x8C\x00\x00\x00\x00\x68\xD4\x0E\x00\x00",
+            "xxx????xxxxxxxx????xxxxx", &build_queue_anchor)
+        || !FindUnique(module, module_size, "observer panel",
+            "\x8B\x44\x24\x14\x83\xC0\x01\x83\xF8\x06\x89\x44\x24\x14\x0F\x8C\x00\x00\x00\x00\x8B\x44\x24\x18\x83\xC0\x01\x83\xF8\x06\x89\x44\x24\x18\x0F\x8C\x00\x00\x00\x00",
+            "xxxxxxxxxxxxxxxx????xxxxxxxxxxxxxxxx????", &observer_anchor)) {
+        return false;
+    }
+
+    DWORD abilities = abilities_anchor + 0x09;
+    DWORD global_abilities = global_abilities_anchor + 0x09;
+    DWORD mini_portraits = mini_portraits_anchor + 0x09;
+    DWORD mini_portrait_loop = mini_portrait_loop_anchor + 0x0A;
+    DWORD build_queue = build_queue_anchor + 0x0C;
+    DWORD observer_players = observer_anchor + 0x09;
+    DWORD observer_teams = observer_anchor + 0x1D;
+
+    if (!HasByte(abilities, 0x07)
+        || !HasByte(global_abilities, 0x05)
+        || !HasByte(mini_portraits, 0x09)
+        || !HasByte(mini_portrait_loop, 0x08)
+        || !HasByte(build_queue, 0x05)
+        || !HasByte(observer_players, 0x06)
+        || !HasByte(observer_teams, 0x06)) {
+        return FailPatch("derived patch bytes did not validate");
+    }
+#else
+    DWORD abilities = base + 0x00739FA6;
+    DWORD global_abilities = base + 0x0073A70D;
+    DWORD mini_portraits = base + 0x0073B486;
+    DWORD mini_portrait_loop = base + 0x00753EDF;
+    DWORD build_queue = base + 0x0073B6F5;
+    DWORD observer_players = base + 0x0073D937;
+    DWORD observer_teams = base + 0x0073D94B;
+#endif
+
         //ABILITIES (MOSTLY FUNCTIONAL)
         //sub_B39850
-        MemPatch(reinterpret_cast<BYTE*>((base + 0x00739FA6)), newValue1, sizeof(newValue1)); //(NECESSARY) compare, expands number of available abilities, though the new ability slots do not respond to icon indexes beyond 6 in the rbf files - not a priority or major issue though
+        if (!ApplyPatch(abilities, newValue1, sizeof(newValue1), "abilities patch failed")) return false; //(NECESSARY) compare, expands number of available abilities, though the new ability slots do not respond to icon indexes beyond 6 in the rbf files - not a priority or major issue though
 
 
         //GLOBAL ABILITIES (MOSTLY FUNCTIONAL)
         //sub_B39850
-        MemPatch(reinterpret_cast<BYTE*>((base + 0x0073A70D)), newValue1, sizeof(newValue1)); //(NECESSARY) compare, expands number of available global abilities, same as with regular abilities they dont respond to icon indexes beyond original - not a priority or major issue though
+        if (!ApplyPatch(global_abilities, newValue1, sizeof(newValue1), "global abilities patch failed")) return false; //(NECESSARY) compare, expands number of available global abilities, same as with regular abilities they dont respond to icon indexes beyond original - not a priority or major issue though
 
 
         //MINI PORTRAITS (FUNCTIONAL)
         //sub_B39850
-        MemPatch(reinterpret_cast<BYTE*>((base + 0x0073B486)), newValue1, sizeof(newValue1)); //(NECESSARY) compare, expands number of available mini portraits
+        if (!ApplyPatch(mini_portraits, newValue1, sizeof(newValue1), "mini portraits patch failed")) return false; //(NECESSARY) compare, expands number of available mini portraits
 
         //sub_B53E50
-        MemPatch(reinterpret_cast<BYTE*>((base + 0x00753EDF)), newValue1, sizeof(newValue1)); //(NECESSARY) compare, calls miniportrait address above in a loop to enable functionality of the mini portraits
+        if (!ApplyPatch(mini_portrait_loop, newValue1, sizeof(newValue1), "mini portrait loop patch failed")) return false; //(NECESSARY) compare, calls miniportrait address above in a loop to enable functionality of the mini portraits
 
 
         //SQUAD TABS (NOT FUNCTIONAL)
@@ -113,7 +248,7 @@ void InitPatch()
 
         //BUILD QUEUE (NOT FUNCTIONAL)
         //sub_B39850
-        MemPatch(reinterpret_cast<BYTE*>((base + 0x0073B6F5)), newValue1, sizeof(newValue1)); //(NECESSARY) compare, number of available build queue elements
+        if (!ApplyPatch(build_queue, newValue1, sizeof(newValue1), "build queue patch failed")) return false; //(NECESSARY) compare, number of available build queue elements
 
         //sub_B714D0
         //MemPatch(reinterpret_cast<BYTE*>((base + 0x007715A0)), newValue3, sizeof(newValue3)); //compare, either UI or a production ystem compare, might help expand max build queue
@@ -121,8 +256,8 @@ void InitPatch()
 
         //OBSERVER PANEL PLAYERS/TEAMS (NOT FUNCTIONAL)
         //sub_B3C780
-        MemPatch(reinterpret_cast<BYTE*>((base + 0x0073D937)), newValue2, sizeof(newValue2)); //(NECESSARY) compare, expands number of available players/teams in observer
-        MemPatch(reinterpret_cast<BYTE*>((base + 0x0073D94B)), newValue2, sizeof(newValue2)); //(NECESSARY)^^
+        if (!ApplyPatch(observer_players, newValue2, sizeof(newValue2), "observer players patch failed")) return false; //(NECESSARY) compare, expands number of available players/teams in observer
+        if (!ApplyPatch(observer_teams, newValue2, sizeof(newValue2), "observer teams patch failed")) return false; //(NECESSARY)^^
 
         //sub_B63BE0
         //MemPatch(reinterpret_cast<BYTE*>((base + 0x00764A53)), newValue2, sizeof(newValue2)); //compare, appears to be for partly enabling the UI elements, though just these three don't fully work on their own yet either - game also crashes when loading *out* of the replay, and crashes if observing a live game outright
@@ -145,14 +280,18 @@ void InitPatch()
 
         //sub_B6C940
         //MemPatch(reinterpret_cast<BYTE*>((base + 0x0076CBE2)), newValue2, sizeof(newValue2)); //compare, may be related to max players
-    }
+    return true;
 }
 
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved) {
     switch (dwReason) {
     case DLL_PROCESS_ATTACH:
+#ifdef DOW2_SIGSCAN
+        return InitPatch() ? TRUE : FALSE;
+#else
         InitPatch();
+#endif
         break;
     case DLL_PROCESS_DETACH:
         break;

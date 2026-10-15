@@ -30,6 +30,8 @@ slot dropdown generators
 */
 
 DWORD jmpback_midstats;
+DWORD stats_patch = 0;
+DWORD scaling_patch = 0;
 void __declspec(naked) MidStatsPopGenerate() {
     __asm {
         jmp[jmpback_midstats];
@@ -115,6 +117,83 @@ void __declspec(naked) MidReveal() {
     }
 }
 
+#ifdef DOW2_SIGSCAN
+    static size_t GetModuleImageSize(HMODULE module) {
+        if (!module) {
+            return 0;
+        }
+        const auto dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(module);
+        if (dos->e_magic != IMAGE_DOS_SIGNATURE) {
+            return 0;
+        }
+        const auto nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(
+            reinterpret_cast<const BYTE*>(module) + dos->e_lfanew);
+        return nt->Signature == IMAGE_NT_SIGNATURE ? nt->OptionalHeader.SizeOfImage : 0;
+    }
+
+    static bool ScanUnique(
+        BYTE* module,
+        size_t module_size,
+        const char* pattern,
+        const char* mask,
+        DWORD* address) {
+        const SigScanResult first = SigScan(module, module_size, pattern, mask);
+        if (!first.found) {
+            return false;
+        }
+        const size_t next_offset = first.address - reinterpret_cast<DWORD>(module) + 1;
+        if (next_offset < module_size) {
+            const SigScanResult second =
+                SigScan(module + next_offset, module_size - next_offset, pattern, mask);
+            if (second.found) {
+                return false;
+            }
+        }
+        *address = first.address;
+        return true;
+    }
+
+    static bool ResolveAddresses() {
+        BYTE* module = reinterpret_cast<BYTE*>(base);
+        const size_t module_size = GetModuleImageSize(reinterpret_cast<HMODULE>(base));
+        DWORD epilogue_anchor = 0;
+        DWORD scaling_anchor = 0;
+
+        static const char stats_pattern[] =
+            "\x75\x00\x68\x77\xDC\x00\x00\xE8\x00\x00\x00\x00\x8A\xD8\xE8"
+            "\x00\x00\x00\x00\x84\xDB\x75\x00\x84\xC0\x74\x00\x33\xF6\x6A"
+            "\x18\xE8\x00\x00\x00\x00";
+        static const char stats_mask[] = "x?xxxxxx????xxx????xxx?xxx?xxxxx????";
+        static const char epilogue_pattern[] =
+            "\x83\x4D\xFC\xFF\x8D\x4D\xE8\xFF\x15\x00\x00\x00\x00\x8B\x4D"
+            "\xF4\x5F\x5E\x64\x89\x0D\x00\x00\x00\x00\x5B\xC9\xC2\x10\x00"
+            "\x55\x8B\xEC\x83\xE4\xF8";
+        static const char epilogue_mask[] = "xxxxxxxxx????xxxxxxxxxxxxxxxxxxxxxxx";
+        static const char scaling_pattern[] =
+            "\xF3\x0F\x10\x00\x0F\x2F\xC2\x76\x00\x8D\x44\x24\x04\xF3\x0F"
+            "\x10\x00\x83\xC4\x08\xC2\x08\x00";
+        static const char scaling_mask[] = "xxxxxxxx?xxxxxxxxxxxxxx";
+
+        if (!module_size ||
+            !ScanUnique(module, module_size, stats_pattern, stats_mask, &stats_patch) ||
+            !ScanUnique(module, module_size, epilogue_pattern, epilogue_mask, &epilogue_anchor) ||
+            !ScanUnique(module, module_size, scaling_pattern, scaling_mask, &scaling_anchor)) {
+            return false;
+        }
+
+        jmpback_midstats = epilogue_anchor + 0x10;
+        scaling_patch = scaling_anchor + 7;
+        return memcmp(reinterpret_cast<void*>(stats_patch), "\x75\x1B\x68\x77\xDC\x00\x00", 7) == 0 &&
+            memcmp(reinterpret_cast<void*>(jmpback_midstats), "\x5F\x5E\x64\x89\x0D", 5) == 0 &&
+            *reinterpret_cast<BYTE*>(scaling_patch) == 0x76;
+    }
+#endif
+
+static BOOL FailInitialization(const char* message) {
+    MessageBoxA(nullptr, message, "MiscFixes", MB_OK | MB_ICONERROR);
+    return FALSE;
+}
+
 
 //hook the wrapper and see what it passes down
 //400000
@@ -158,15 +237,27 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     {
     case DLL_PROCESS_ATTACH:
         base = (DWORD)GetModuleHandleA("DOW2.exe");
+#ifdef DOW2_SIGSCAN
+        if (!ResolveAddresses()) {
+            return FailInitialization("Misc Fixes: required DOW2.exe signatures were not found uniquely.");
+        }
+#else
+        stats_patch = base + 0x64CB8;
+        jmpback_midstats = base + 0x64D64;
+        scaling_patch = base + 0x77C1F0;
+#endif
         //removing stats dropdown patch
-        jmpback_midstats = (base + 0x64D64);
-        JmpPatch(reinterpret_cast<BYTE*>(base + 0x64CB8), (DWORD)MidStatsPopGenerate, 7); 
-        //this jmppatch just jmps around 
+        if (!JmpPatch(reinterpret_cast<BYTE*>(stats_patch), (DWORD)MidStatsPopGenerate, 7)) {
+            return FailInitialization("Misc Fixes: failed to install statistics popup hook.");
+        }
+        //this jmppatch just jmps around
         //the entire code which creates the ui element
 
         // scaling patch
         // https://github.com/RipleyTom/rustpatch
-        MemPatch(reinterpret_cast<BYTE*>(base + 0x77C1F0), src, 1);
+        if (!MemPatch(reinterpret_cast<BYTE*>(scaling_patch), src, 1)) {
+            return FailInitialization("Misc Fixes: failed to install scaling patch.");
+        }
 
         //testing for decorator
         jmpback_wrapper = base + 0x28200D;
@@ -182,4 +273,3 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     }
     return TRUE;
 }
-
